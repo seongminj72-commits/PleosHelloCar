@@ -1,0 +1,241 @@
+package com.example.pleoshellocar.shared.car
+
+import androidx.car.app.CarContext
+import androidx.car.app.Screen
+import androidx.car.app.model.*
+import androidx.car.app.CarToast
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import com.example.pleoshellocar.shared.domain.*
+import com.example.pleoshellocar.shared.vehicle.*
+import com.example.pleoshellocar.shared.navigation.*
+import com.example.pleoshellocar.shared.payment.*
+
+/** MVP의 자체 행 수 제한. 호스트별 제약과 카테고리 심사는 별도 검증한다. */
+abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowController) : Screen(context) {
+    init { lifecycle.addObserver(object : DefaultLifecycleObserver {
+        override fun onResume(owner: LifecycleOwner) { invalidate() }
+    }) }
+
+    protected fun runAction(block: () -> Unit) {
+        try { block() } catch(e: IllegalStateException) { toast(e.message ?: "상태를 확인하세요.") }
+        catch(e: IllegalArgumentException) { toast(e.message ?: "입력값을 확인하세요.") }
+        invalidate()
+    }
+
+    protected fun toast(text: String) = CarToast.makeText(carContext, text, CarToast.LENGTH_LONG).show()
+
+    /** 행 생성 - 차량용 디스플레이 가독성 고려: 제목 굵게, 본문 일반 */
+    protected fun row(
+        title: String,
+        text: String,
+        parked: Boolean = false,
+        click: (() -> Unit)? = null
+    ): Row {
+        val builder = Row.Builder()
+            .setTitle(title)
+            .addText(text)
+        if (click != null) {
+            val listener = OnClickListener { runAction(click) }
+            builder.setOnClickListener(if (parked) ParkedOnlyOnClickListener.create(listener) else listener)
+        }
+        return builder.build()
+    }
+
+    /** 액션 버튼 생성 - 주행 중 비활성화 지원 */
+    protected fun action(title: String, parked: Boolean = false, click: () -> Unit): Action {
+        val listener = OnClickListener { runAction(click) }
+        return Action.Builder().setTitle(title)
+            .setOnClickListener(if (parked) ParkedOnlyOnClickListener.create(listener) else listener).build()
+    }
+
+    /** 숫자 포맷: 3자리마다 콤마 */
+    protected fun formatWon(won: Int): String = won.toString().replace("\\B(?=(\\d{3})+(?!\\d))".toRegex(), ",")
+
+    /** 리스트 템플릿 - 최대 6행 제한 준수 */
+    protected fun list(
+        title: String,
+        rows: List<Row>,
+        root: Boolean = false,
+        action: Action? = null
+    ): Template {
+        require(rows.size <= 6) { "ListTemplate 행 초과: ${rows.size} > 6" }
+        val items = ItemList.Builder(); rows.forEach(items::addItem)
+        val builder = ListTemplate.Builder()
+            .setTitle(title)
+            .setHeaderAction(if (root) Action.APP_ICON else Action.BACK)
+            .setSingleList(items.build())
+        if (action != null) {
+            builder.setActionStrip(ActionStrip.Builder().addAction(action).build())
+        }
+        return builder.build()
+    }
+
+    /** 페인 템플릿 - 최대 5행 제한 준수 */
+    protected fun pane(title: String, rows: List<Row>, actions: List<Action> = emptyList()): Template {
+        require(rows.size <= 5) { "PaneTemplate 행 초과: ${rows.size} > 5" }
+        require(actions.size <= 2) { "PaneTemplate 액션 초과: ${actions.size} > 2" }
+        val paneBuilder = Pane.Builder(); rows.forEach(paneBuilder::addRow)
+        actions.forEach(paneBuilder::addAction)
+        return PaneTemplate.Builder(paneBuilder.build())
+            .setTitle(title)
+            .setHeaderAction(Action.BACK)
+            .build()
+    }
+
+    /** Mock 상태 표시 - 실제 차량 신호와 명확히 구분 */
+    protected fun mockBadge(): String = "[데모] ${flow.vehicle.getVehicleState()} · 실제 차량 신호 아님"
+}
+
+class HomeScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template = list("Pleos DriveFlow", listOf(
+        row("매장 찾기", "드라이브스루 매장 3곳 (가상)") { screenManager.push(StoreScreen(carContext, flow)) },
+        row("내 주문 확인", flow.orders.latest()?.let { "${it.id} · ${it.status.label}" } ?: "주문 내역 없음") {
+            screenManager.push(OrderStatusScreen(carContext, flow))
+        },
+        row("서비스 상태", mockBadge(), parked = true) { screenManager.push(DemoSettingsScreen(carContext, flow)) }
+    ), root = true)
+}
+
+class StoreScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template {
+        val storeRows = flow.stores.stores().map { store ->
+            val status = if (store.acceptingOrders) "주문 가능" else "영업 종료"
+            row(store.name, "준비 약 ${store.preparationMinutes}분 · $status (가상 매장)", parked = true) {
+                flow.selectStore(store)
+                screenManager.push(MenuScreen(carContext, flow))
+            }
+        }
+        // 최대 6행 제한: 매장 3개 + 안내 행
+        val rows = storeRows + listOf(row("안내", "정차 중에만 매장 선택 가능 (데모)", parked = true) {})
+        return list("드라이브스루 매장 선택", rows)
+    }
+}
+
+class MenuScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template {
+        val menuRows = flow.selectedStore!!.menu.map { item ->
+            val qty = flow.quantity(item.id)
+            val qtyText = when (qty) {
+                0 -> "선택 안 함"
+                1 -> "1개"
+                2 -> "2개"
+                else -> "3개"
+            }
+            row(item.name, "${formatWon(item.priceWon)}원 · $qtyText", parked = true) {
+                flow.setQuantity(item, (qty + 1) % 4)
+            }
+        }
+        val recommendation = flow.recommendation()
+        val recRow = row("주문 추천", "${recommendation.label} · ${recommendation.reason}", parked = false)
+        val totalRow = row("합계", "${formatWon(flow.totalWon())}원", parked = false)
+
+        // 최대 6행: 메뉴 4개 + 추천 + 합계
+        val rows = menuRows + listOf(recRow, totalRow)
+
+        return list("메뉴 선택", rows, action = action("주문 확인", parked = true) {
+            InteractionPolicy.requireParked(flow.vehicle)
+            check(flow.lines().isNotEmpty()) { "최소 1개 이상 선택하세요." }
+            screenManager.push(ConfirmationScreen(carContext, flow))
+        })
+    }
+}
+
+class ConfirmationScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template {
+        val recommendation = flow.recommendation()
+        val orderSummary = flow.lines().joinToString(", ") { "${it.item.name} ${it.quantity}개" }
+        val totalWon = formatWon(flow.totalWon())
+
+        val rows = listOf(
+            row(flow.selectedStore!!.name, "${totalWon}원 · $orderSummary"),
+            row("주문 추천", "${recommendation.label} · ${recommendation.reason}"),
+            row("결제 안내", "데모 결제 — 실제 청구 없음 [${mockBadge()}]"),
+            row("차량 상태", mockBadge())
+        )
+
+        val actions = listOf(
+            action("결제 진행", parked = true) {
+                val order = flow.checkout()
+                screenManager.push(ReceiptScreen(carContext, flow, order.id))
+            },
+            action("메뉴로 돌아가기", parked = true) { screenManager.pop() }
+        )
+
+        return pane("주문 확인", rows, actions)
+    }
+}
+
+/** 구매 태스크의 마지막 템플릿 (5번째). 주문 상태는 홈에서 별도 태스크로 확인. */
+class ReceiptScreen(context: CarContext, flow: DriveFlowController, private val id: String) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template = MessageTemplate.Builder(
+        "주문번호: $id\n데모 결제 — 실제 금액이 청구되지 않습니다."
+    )
+        .setTitle("모의 결제 성공")
+        .setHeaderAction(Action.APP_ICON)
+        .addAction(action("홈으로") { screenManager.popToRoot() })
+        .build()
+}
+
+class OrderStatusScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template {
+        val order = flow.orders.latest()
+        val orderInfo = order?.let { "${it.id} · ${it.store.name} · ${formatWon(it.totalWon)}원" } ?: "주문 내역 없음"
+        val pickupStatus = order?.status?.label ?: "먼저 주문하세요"
+
+        val rows = listOf(
+            row("주문 정보", orderInfo),
+            row("픽업 상태", pickupStatus),
+            row("알림", "${flow.announcement} · [텍스트만, 음성 미지원]"),
+            row("진행 / 재시도", "정차 전용 · 실제 청구 없음", parked = true) {
+                if (flow.orders.latest()?.status == OrderStatus.ORDER_CREATED) flow.checkout() else flow.advance()
+            },
+            row("주문 취소", "정차 전용 · 완료/취소된 주문은 변경 불가", parked = true) { flow.cancel() }
+        )
+
+        return list("내 주문 현황", rows)
+    }
+}
+
+class DemoSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template {
+        val vehicle = flow.vehicle as MockVehicleStateProvider
+        val navigation = flow.navigation as MockNavigationEtaProvider
+        val payment = flow.payment as MockPaymentSimulator
+
+        val vehicleStateText = when (vehicle.state) {
+            VehicleState.UNKNOWN -> "UNKNOWN (알 수 없음) — 모든 조작 제한"
+            VehicleState.PARKED -> "PARKED (정차) — 모든 조작 허용"
+            VehicleState.DRIVING -> "DRIVING (주행) — 조작 제한됨"
+        }
+
+        val rows = listOf(
+            row("차량 상태", "$vehicleStateText · 탭하여 순환", parked = true) {
+                vehicle.state = when (vehicle.state) {
+                    VehicleState.UNKNOWN -> VehicleState.PARKED
+                    VehicleState.PARKED -> VehicleState.DRIVING
+                    else -> VehicleState.UNKNOWN
+                }
+            },
+            row("도착 예정 시간 (ETA)", "${navigation.minutes?.let { "$it 분" } ?: "정보 없음"} · 탭하여 변경 (8→10→3→없음)", parked = true) {
+                val values = listOf(8, 10, 3, null)
+                navigation.minutes = values[(values.indexOf(navigation.minutes) + 1) % values.size]
+            },
+            row("매장 준비시간 덮어쓰기", "${flow.preparationOverride?.let { "$it 분" } ?: "매장 기본값 사용"} · 탭: 기본→5→6→기본", parked = true) {
+                flow.preparationOverride = when (flow.preparationOverride) {
+                    null -> 5
+                    5 -> 6
+                    else -> null
+                }
+            },
+            row("예상 지연 / 안전 여유", "지연 ${flow.possibleDelay}분 · 여유 1분 (모두 추정값)", parked = true) {
+                flow.possibleDelay = if (flow.possibleDelay == 0) 2 else 0
+            },
+            row("다음 결제 실패 시뮬레이션", "${if (payment.failNext) "실패로 설정됨" else "정상"} · 탭하여 전환", parked = true) {
+                payment.failNext = !payment.failNext
+            }
+        )
+
+        return list("데모 설정 (실제 신호 아님)", rows)
+    }
+}
