@@ -4,7 +4,8 @@ data class MenuItem(val id: String, val name: String, val priceWon: Int) {
     init { require(id.isNotBlank() && priceWon in 1..100_000) }
 }
 data class Store(val id: String, val name: String, val preparationMinutes: Int,
-    val acceptingOrders: Boolean, val menu: List<MenuItem>)
+    val acceptingOrders: Boolean, val menu: List<MenuItem>,
+    val routeTestPoint: com.example.pleoshellocar.shared.navigation.GeoPoint? = null)
 data class OrderLine(val item: MenuItem, val quantity: Int) {
     init { require(quantity in 1..3) { "수량은 1~3개여야 합니다." } }
     val totalWon: Int get() = item.priceWon * quantity
