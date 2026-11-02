@@ -27,3 +27,8 @@ local.properties
 *.pem
 *.p12
 *.pfx
+
+# Runtime proxy credentials and Python bytecode
+eta-proxy.json
+__pycache__/
+*.pyc

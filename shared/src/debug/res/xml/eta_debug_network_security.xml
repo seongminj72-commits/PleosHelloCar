@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <!-- adb reverse only; release does not include this resource. -->
+    <domain-config cleartextTrafficPermitted="true"><domain>localhost</domain></domain-config>
+</network-security-config>

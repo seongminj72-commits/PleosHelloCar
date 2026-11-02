@@ -13,7 +13,10 @@ import com.example.pleoshellocar.shared.payment.*
 
 /** MVP의 자체 행 수 제한. 호스트별 제약과 카테고리 심사는 별도 검증한다. */
 abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowController) : Screen(context) {
+    private val etaChanged: () -> Unit = { invalidate() }
     init { lifecycle.addObserver(object : DefaultLifecycleObserver {
+        override fun onStart(owner: LifecycleOwner) { flow.navigation.addListener(etaChanged) }
+        override fun onStop(owner: LifecycleOwner) { flow.navigation.removeListener(etaChanged) }
         override fun onResume(owner: LifecycleOwner) { invalidate() }
     }) }
 
@@ -127,7 +130,7 @@ class MenuScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(co
             }
         }
         val recommendation = flow.recommendation()
-        val recRow = row("주문 추천", "${recommendation.label} · ${recommendation.reason}", parked = false)
+        val recRow = row("주문 추천", "${flow.navigation.statusLabel} · ${recommendation.label} · ${recommendation.reason}", parked = false)
         val totalRow = row("합계", "${formatWon(flow.totalWon())}원", parked = false)
 
         // 최대 6행: 메뉴 4개 + 추천 + 합계
@@ -149,7 +152,7 @@ class ConfirmationScreen(context: CarContext, flow: DriveFlowController) : FlowS
 
         val rows = listOf(
             row(flow.selectedStore!!.name, "${totalWon}원 · $orderSummary"),
-            row("주문 추천", "${recommendation.label} · ${recommendation.reason}"),
+            row("주문 추천", "${flow.navigation.statusLabel} · ${recommendation.label} · ${recommendation.reason}"),
             row("결제 안내", "데모 결제 — 실제 청구 없음 [${mockBadge()}]"),
             row("차량 상태", mockBadge())
         )
@@ -200,7 +203,8 @@ class OrderStatusScreen(context: CarContext, flow: DriveFlowController) : FlowSc
 class DemoSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
     override fun onGetTemplate(): Template {
         val vehicle = flow.vehicle as MockVehicleStateProvider
-        val navigation = flow.navigation as MockNavigationEtaProvider
+        val navigation = (flow.navigation as? TmapNavigationEtaProvider)?.mock
+            ?: (flow.navigation as MockNavigationEtaProvider)
         val payment = flow.payment as MockPaymentSimulator
 
         val vehicleStateText = when (vehicle.state) {
@@ -217,7 +221,8 @@ class DemoSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowS
                     else -> VehicleState.UNKNOWN
                 }
             },
-            row("도착 예정 시간 (ETA)", "${navigation.minutes?.let { "$it 분" } ?: "정보 없음"} · 탭하여 변경 (8→10→3→없음)", parked = true) {
+            row("Mock ETA 설정", "${navigation.minutes?.let { "$it 분" } ?: "정보 없음"} · 탭하여 변경 (8→10→3→없음)", parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
                 val values = listOf(8, 10, 3, null)
                 navigation.minutes = values[(values.indexOf(navigation.minutes) + 1) % values.size]
             },
@@ -233,9 +238,35 @@ class DemoSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowS
             },
             row("다음 결제 실패 시뮬레이션", "${if (payment.failNext) "실패로 설정됨" else "정상"} · 탭하여 전환", parked = true) {
                 payment.failNext = !payment.failNext
+            },
+            row("ETA 연결 설정", flow.navigation.statusLabel, parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
+                screenManager.push(EtaSettingsScreen(carContext, flow))
             }
         )
 
         return list("데모 설정 (실제 신호 아님)", rows)
+    }
+}
+
+class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template {
+        val navigation = flow.navigation as? TmapNavigationEtaProvider
+            ?: return list("ETA 설정", listOf(row("Mock", "실제 연결 공급자가 없습니다.")))
+        return list("ETA 연결 설정", listOf(
+            row("모드: ${navigation.mode}", navigation.statusLabel, parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
+                navigation.setMode(if (navigation.mode == EtaMode.MOCK) EtaMode.REAL else EtaMode.MOCK)
+            },
+            row("위치 권한 허용", "Real 모드에서 현재 위치를 프록시와 TMAP에 전송합니다.", parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
+                carContext.requestPermissions(listOf(android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION)) { _, _ -> navigation.refresh(); invalidate() }
+            },
+            row("ETA 새로고침", "30초 호출 간격 · 실패 시 Mock 자동 대체 없음", parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle); navigation.refresh()
+            },
+            row("연동 범위", "실제 경로 계산 + 가상 매장 테스트 좌표. 주문·결제·차량은 데모입니다.")
+        ))
     }
 }

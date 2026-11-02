@@ -18,14 +18,14 @@ class DriveFlowController(
     private var requestId = UUID.randomUUID().toString()
     var preparationOverride: Int? = null
     var possibleDelay: Int = 0
-    var announcement: String = "차량·ETA·매장·결제 모두 Mock 데모입니다."
+    var announcement: String = "차량·매장·결제는 Mock입니다. ETA 출처는 별도 표시합니다."
         private set
     fun quantity(id: String) = quantities[id] ?: 0
     fun selectStore(store: Store) {
         InteractionPolicy.requireParked(vehicle)
         check(orders.latest()?.terminal != false) { "진행 중인 주문이 있습니다." }
         require(store in stores.stores() && store.acceptingOrders) { "현재 주문할 수 없는 매장입니다." }
-        selectedStore = store; quantities.clear(); requestId = UUID.randomUUID().toString()
+        selectedStore = store; navigation.selectDestination(store.routeTestPoint); quantities.clear(); requestId = UUID.randomUUID().toString()
     }
     fun setQuantity(item: MenuItem, quantity: Int) {
         InteractionPolicy.requireParked(vehicle)

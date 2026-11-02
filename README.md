@@ -48,3 +48,12 @@ adb -s emulator-5554 shell am start -n com.example.pleoshellocar/androidx.car.ap
 ## 향후 개발
 
 호환성이 확인된 Pleos 차량·ETA Provider, 호스트 검증 정책, 주문 영속화 및 서버 연동, 음성 안내를 단계적으로 검토합니다. 개발용 ALLOW_ALL_HOSTS_VALIDATOR는 출시 전에 교체해야 합니다. 실제 결제는 이번 MVP 범위에서 제외합니다. 템플릿 구동 성공만으로 음식 주문 UI의 심사 적합성을 보장하지 않습니다. v0.2.0 태그와 원격 Push/PR은 사용자 승인 후 진행합니다.
+
+
+## v0.3.0 — TMAP ETA 확장 (로컬 개발)
+
+Mock/Real 모드 전환, Android 현재 위치, 키를 서버에만 보관하는 TMAP 자동차 경로 프록시와 추천 자동 갱신을 추가했다. 기본값은 Mock이다. 실제 TMAP appKey를 이용한 실서비스 검증은 별도 필요하다. 실제 결제/POS는 구현하지 않았다.
+
+- [TMAP 연결·Android Studio 실행 방법](docs/tmap-integration.md)
+- [v0.3.0 개발 결과와 검증 범위](docs/v0.3.0-development-report.md)
+- 프록시 실행: `python3 server/run_local_demo.py` (Python 3.10+, ADB 필요, 키는 숨김 입력)
