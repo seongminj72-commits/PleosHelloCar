@@ -8,7 +8,7 @@
 - 이전 직접 화면 검증: 홈 → 매장 A → 메뉴 수량 선택 → 확인 → 모의 결제 → 주문번호 → 내 주문 → 준비 중 → 픽업 준비 완료.
 - Mock DRIVING 상태의 매장 선택 차단 확인. UNKNOWN/PARKED/DRIVING의 도메인 조작 정책은 단위 테스트로 검증.
 - 모의 결제 실패 후 재시도 성공 화면 확인.
-- shared 도메인 테스트 20개, automotive 기본 테스트 1개, mobile 기본 테스트 1개: 총 22개 통과. 기본 테스트 2개는 실제 사용자 흐름 검증을 대체하지 않는다.
+- 자동 테스트 수치 갱신(2026-11-06): Kotlin 테스트 35개(shared 33 = DriveFlowTest 20 + TmapNavigationEtaProviderTest 13, automotive 1, mobile 1)와 Python 서버 테스트 12개 통과. 기본 테스트 2개는 실제 사용자 흐름 검증을 대체하지 않는다.
 - automotive/mobile assembleDebug 및 각 모듈 testDebugUnitTest 성공. Gradle 10 관련 사용 중단 경고 존재.
 
 ## ETA 결과 정정

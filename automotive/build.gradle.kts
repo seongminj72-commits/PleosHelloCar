@@ -2,6 +2,14 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+val releaseStoreFile = providers.gradleProperty("DRIVEFLOW_RELEASE_STORE_FILE")
+val releaseStorePassword = providers.gradleProperty("DRIVEFLOW_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = providers.gradleProperty("DRIVEFLOW_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = providers.gradleProperty("DRIVEFLOW_RELEASE_KEY_PASSWORD")
+val hasReleaseSigning = listOf(
+    releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword
+).all { it.isPresent }
+
 android {
     namespace = "com.example.pleoshellocar"
     compileSdk {
@@ -18,8 +26,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFile.get())
+                storePassword = releaseStorePassword.get()
+                keyAlias = releaseKeyAlias.get()
+                keyPassword = releaseKeyPassword.get()
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
