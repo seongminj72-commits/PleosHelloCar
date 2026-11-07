@@ -35,7 +35,7 @@ adb -s emulator-5554 shell am start -n com.example.pleoshellocar/androidx.car.ap
 
 ## 검증과 SDK 활용 현황
 
-자동차·모바일 Debug 빌드 및 테스트 총22개 통과를 확인했습니다. 에뮬레이터에서 주문과 픽업 준비까지 실제 화면을 확인했습니다. 실제 Pleos SDK 신호·위치·TTS는 미연동이며 공식 조사와 미확인 범위는 [SDK 조사](docs/sdk-feasibility.md)를 따릅니다. 실차 동작과 출시 심사는 미검증입니다.
+2026-11-06 자동차·모바일 Debug 빌드 및 Kotlin 테스트 35개(shared 33 = DriveFlowTest 20 + TmapNavigationEtaProviderTest 13, automotive 1, mobile 1)와 Python 서버 테스트 12개 통과를 확인했습니다. 에뮬레이터에서 주문과 픽업 준비까지 실제 화면을 확인했습니다. 실제 Pleos SDK 신호·위치·TTS는 미연동이며 공식 조사와 미확인 범위는 [SDK 조사](docs/sdk-feasibility.md)를 따릅니다. 실차 동작과 출시 심사는 미검증입니다.
 
 ## 문서
 
@@ -52,8 +52,22 @@ adb -s emulator-5554 shell am start -n com.example.pleoshellocar/androidx.car.ap
 
 ## v0.3.0 — TMAP ETA 확장 (로컬 개발)
 
-Mock/Real 모드 전환, Android 현재 위치, 키를 서버에만 보관하는 TMAP 자동차 경로 프록시와 추천 자동 갱신을 추가했다. 기본값은 Mock이다. 실제 TMAP appKey를 이용한 실서비스 검증은 별도 필요하다. 실제 결제/POS는 구현하지 않았다.
+Mock/Real 모드 전환, Android 현재 위치, 키를 서버에만 보관하는 TMAP 자동차 경로 프록시와 추천 자동 갱신을 추가했다. 기본값은 Mock이다. 실제 TMAP appKey를 이용한 실서비스 검증은 별도 필요하다. (개발 당시 기록. 2026-11-03 실 API 응답 확인: [docs/tmap-live-validation.md](docs/tmap-live-validation.md).) 실제 결제/POS는 구현하지 않았다.
 
 - [TMAP 연결·Android Studio 실행 방법](docs/tmap-integration.md)
 - [v0.3.0 개발 결과와 검증 범위](docs/v0.3.0-development-report.md)
 - 프록시 실행: `python3 server/run_local_demo.py` (Python 3.10+, ADB 필요, 키는 숨김 입력)
+
+
+## 릴리스 서명 방법
+
+다음 Gradle 속성 네 개를 모두 주입하면 automotive release 서명이 활성화됩니다. 하나라도 없으면 미서명 release를 빌드합니다.
+
+- `DRIVEFLOW_RELEASE_STORE_FILE`
+- `DRIVEFLOW_RELEASE_STORE_PASSWORD`
+- `DRIVEFLOW_RELEASE_KEY_ALIAS`
+- `DRIVEFLOW_RELEASE_KEY_PASSWORD`
+
+주입 위치는 사용자 전용 `~/.gradle/gradle.properties` 또는 각 속성 이름 앞에 `ORG_GRADLE_PROJECT_`를 붙인 환경변수입니다. 값은 저장소에 기록하지 않습니다.
+
+Real TMAP ETA는 현재 debug 빌드 + 로컬 프록시 전용입니다. release는 HTTPS 프록시가 없으면 '프록시 설정 필요'로 표시되고 Mock 모드로 전체 데모가 가능합니다. 정확한 위치 권한이 없으면 권한 안내가 먼저 표시됩니다. release에서 실제 ETA를 사용하려면 HTTPS 프록시와 유효한 인증 설정을 앱에 전달하는 경로가 필요합니다. 근거는 `AndroidEtaRequest.kt`의 URL·설정 검증과 `server/run_local_demo.py`의 debug용 `run-as` 주입입니다.

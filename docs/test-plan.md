@@ -6,7 +6,7 @@
 ./gradlew :automotive:assembleDebug :mobile:assembleDebug :shared:testDebugUnitTest :automotive:testDebugUnitTest :mobile:testDebugUnitTest
 ```
 
-DriveFlowTest의 20개 테스트는 ETA 범위·누락·최소 처리시간·지연, UNKNOWN/DRIVING 조작 차단, 수량과 합계, 주문 불가 매장, 결제 실패 재시도, 중복 방지, 전체 상태 전이 조합과 위조 메뉴 거부를 검사한다. automotive/mobile 기본 테스트는 각 1개다. 2026-10-29 재확인 결과 총 22개 통과. XML 결과는 각 모듈 `build/test-results/testDebugUnitTest/`에 생성된다.
+DriveFlowTest의 20개 테스트는 ETA 범위·누락·최소 처리시간·지연, UNKNOWN/DRIVING 조작 차단, 수량과 합계, 주문 불가 매장, 결제 실패 재시도, 중복 방지, 전체 상태 전이 조합과 위조 메뉴 거부를 검사한다. automotive/mobile 기본 테스트는 각 1개다. 2026-11-06 재확인 결과 Kotlin 테스트 35개(shared 33 = DriveFlowTest 20 + TmapNavigationEtaProviderTest 13, automotive 1, mobile 1)와 Python 서버 테스트 12개 통과. XML 결과는 각 모듈 `build/test-results/testDebugUnitTest/`에 생성된다.
 
 ## 수동 시나리오
 

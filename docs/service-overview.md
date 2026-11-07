@@ -13,7 +13,7 @@
 - 모의 결제 실패·재시도, 주문번호, 취소, 픽업 상태와 텍스트 알림
 
 ## 기술 구성과 검증
-Android Automotive OS, Kotlin, Android for Cars App Library 기반입니다. automotive/mobile/shared 모듈과 순수 Kotlin 도메인, Provider 및 Repository 인터페이스로 구성했습니다. Pleos Connect v2.1.0 API34 에뮬레이터에서 구동하며 단위 테스트 총22개를 통과했습니다.
+Android Automotive OS, Kotlin, Android for Cars App Library 기반입니다. automotive/mobile/shared 모듈과 순수 Kotlin 도메인, Provider 및 Repository 인터페이스로 구성했습니다. Pleos Connect v2.1.0 API34 에뮬레이터에서 구동하며 2026-11-06 Kotlin 테스트 35개(shared 33 = DriveFlowTest 20 + TmapNavigationEtaProviderTest 13, automotive 1, mobile 1)와 Python 서버 테스트 12개를 통과했습니다.
 
 ## 데모 범위
 차량 상태, ETA, 매장, 결제, 주문 상태는 Mock입니다. 실제 Pleos SDK 신호·매장 서버·금융 결제·음성은 연결하지 않았습니다. 주문 상태는 버튼으로 진행하고 세션 재생성 시 초기화됩니다. 결제정보를 수집하거나 실제 금액을 청구하지 않습니다. 실차·출시 심사 적합성은 미검증입니다.
