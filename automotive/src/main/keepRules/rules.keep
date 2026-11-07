@@ -10,3 +10,8 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
+
+# 2026-11-07
+# java.lang.IllegalAccessError: Class kotlin.collections.f extended by class l3 is inaccessible
+# packageScope 최적화 시 클래스 이동으로 인한 접근 위반 방지
+-keep class kotlin.collections.** { *; }

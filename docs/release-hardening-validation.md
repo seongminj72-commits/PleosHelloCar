@@ -29,3 +29,23 @@
 검증 4는 통과했다. 검증 5는 설치 후 시작 실패 결과를 기록했으며, 전체 시연 성공은 미달성이다.
 
 2026-11-06 재현 오류: `java.lang.IllegalAccessError: Class kotlin.collections.f extended by class l3 is inaccessible`. 이번 브랜치의 R8 규칙에는 기존 로컬 수정이 포함되지 않는다.
+
+
+## 2026-11-07 R8 수정 재검증
+
+승인된 stash 규칙 원문을 PR 본문에 기록한 후 `-keep class kotlin.collections.** { *; }`를 적용했다. optimization 블록은 유지했다. 주석에 오류 원문, 날짜 및 packageScope 클래스 이동 접근 위반 방지 목적을 기록했다.
+
+- 검증 1 통과. Gradle test 및 automotive/mobile assembleDebug 성공. Kotlin 35개(shared 33, automotive 1, mobile 1), 실패 0.
+- 검증 2 미실행. 수정 후 미서명 assembleRelease 성공. 사용자 터미널에서 서명 속성 주입 후 빌드 대기.
+- 검증 3 통과. 생성된 mapping.txt에서 부모와 자식이 같은 패키지에 유지됨.
+
+```text
+kotlin.collections.CollectionsKt__IterablesKt -> kotlin.collections.CollectionsKt__IterablesKt:
+kotlin.collections.CollectionsKt__IteratorsKt -> kotlin.collections.CollectionsKt__IteratorsKt:
+```
+
+- 검증 4 미실행. 수정된 서명 APK 대기.
+- 검증 5 미실행. 시나리오 1~5, DRIVING 제한, 결제 실패·재시도, Real 프록시 설정 필요 화면은 수정된 서명 APK로 확인 예정.
+- 검증 6 통과. git diff --check 및 변경 내용 검토, 비밀값 없음.
+
+위 2026-11-06 기록은 수정 전 APK의 결과다. 수정 후 전체 완료 기준은 아직 충족되지 않았다.
