@@ -1,5 +1,38 @@
 # Pleos DriveFlow
 
+## 공모전 제출 정보
+
+### 앱 이름과 한 줄 설명
+
+Pleos DriveFlow — 도착 예정 시간과 매장 준비 시간을 맞춰 주문 시점을 추천하는 차량용 픽업 주문 앱
+
+### 실행 방법
+
+제출용 release APK가 등록된 후, 저장소 루트에서 연결된 에뮬레이터 한 대를 대상으로 실행합니다. 현재 APK 등록은 대기 중입니다.
+
+```bash
+adb install -r "apk/조성민_PleosDriveFlow_release.apk"
+adb shell am start -n com.example.pleoshellocar/androidx.car.app.activity.CarAppActivity
+```
+
+1. 홈 → 서비스 상태에서 Mock 차량 상태를 PARKED로 전환합니다.
+2. 홈 → 매장 찾기 → 메뉴 → 주문 확인으로 이동합니다.
+3. 모의 결제 → 주문번호 확인 → 내 주문에서 픽업 상태를 확인합니다.
+
+### 테스트 환경과 필요 설정
+
+Pleos_Connect_v2.1.0 AVD(API 34), 호스트 기어 P·0km/h에서 검증했습니다. 추가 설정 없이 Mock 모드로 전체 시연이 가능하며, 결제는 모의 결제로 실제 청구가 없습니다.
+
+Real TMAP ETA는 debug 빌드 + 로컬 프록시 + 운영자 TMAP 키가 필요합니다. 제출용 release APK에서 Real로 바꾸면 "프록시 설정 필요"가 표시되는 것이 의도된 동작입니다. 정확한 위치 권한이 없으면 권한 안내가 먼저 표시됩니다. 자세한 내용은 [릴리스 서명 방법](#릴리스-서명-방법) 아래 설명과 [TMAP 연동 안내](docs/tmap-integration.md)를 참고하세요.
+
+### APK 위치
+
+- 예정 경로: `apk/조성민_PleosDriveFlow_release.apk`
+- 등록 상태: **APK 대기 — 아직 저장소에 포함되지 않았습니다.**
+- SHA-256: 미산출(실제 제출 APK 등록 후 계산).
+- 빌드·복사 절차: [apk/README.md](apk/README.md)
+- 파일이 50MB를 넘으면 저장소에 커밋하지 않고 GitHub Releases에 업로드한 뒤, 이 항목을 해당 Release 페이지 URL과 실제 APK의 SHA-256으로 갱신합니다.
+
 Android Automotive OS & Pleos Connect Application Development
 
 차량의 예상 도착시간과 가상 매장의 준비시간을 비교해 주문 시점을 추천하고, 정차 상태에서 메뉴 선택·모의 결제·픽업 안내를 시연하는 MVP입니다. PleosHelloCar의 v0.1.0 Hello World 기준점을 보존합니다.
@@ -8,7 +41,7 @@ Android Automotive OS & Pleos Connect Application Development
 
 도착시간과 매장 준비시간을 따로 확인해야 하는 불편을 줄이는 것이 목표입니다. 홈, 가상 매장 3곳, 커피 메뉴 4종, 수량·합계·주문 확인·취소, ETA 추천, 모의 결제와 주문번호, 픽업 상태·텍스트 알림을 구현했습니다. 차량 상태가 UNKNOWN/DRIVING이면 도메인에서 주문 조작을 제한합니다.
 
-모든 차량 상태·ETA·매장·결제·주문 상태는 Mock입니다. 실제 매장 API, 금융 결제, 차량 신호 및 내비게이션 연동은 없습니다. 데모 결제 — 실제 금액이 청구되지 않습니다. 카드·계좌·결제 토큰을 수집하지 않습니다. 주문은 세션 메모리이며 재시작하면 초기화됩니다.
+차량 상태·매장·결제·주문 상태는 Mock입니다. ETA는 기본 Mock이며 설정에서 TMAP 실제 ETA(개발 프록시)로 전환할 수 있습니다. 실제 매장 API, 금융 결제 및 차량 신호는 미연동입니다. 데모 결제 — 실제 금액이 청구되지 않습니다. 카드·계좌·결제 토큰을 수집하지 않습니다. 주문은 세션 메모리이며 재시작하면 초기화됩니다.
 
 ## 구조 및 환경
 
@@ -35,7 +68,7 @@ adb -s emulator-5554 shell am start -n com.example.pleoshellocar/androidx.car.ap
 
 ## 검증과 SDK 활용 현황
 
-2026-11-06 자동차·모바일 Debug 빌드 및 Kotlin 테스트 35개(shared 33 = DriveFlowTest 20 + TmapNavigationEtaProviderTest 13, automotive 1, mobile 1)와 Python 서버 테스트 12개 통과를 확인했습니다. 에뮬레이터에서 주문과 픽업 준비까지 실제 화면을 확인했습니다. 실제 Pleos SDK 신호·위치·TTS는 미연동이며 공식 조사와 미확인 범위는 [SDK 조사](docs/sdk-feasibility.md)를 따릅니다. 실차 동작과 출시 심사는 미검증입니다.
+2026-11-06 자동차·모바일 Debug 빌드 및 Kotlin 테스트 35개(shared 33 = DriveFlowTest 20 + TmapNavigationEtaProviderTest 13, automotive 1, mobile 1)와 Python 서버 테스트 12개 통과를 확인했습니다. 에뮬레이터에서 주문과 픽업 준비까지 실제 화면을 확인했습니다. 현재 위치는 표준 Android 위치 API를 사용합니다. Pleos SDK 차량 신호·TTS는 미연동이며 공식 조사와 미확인 범위는 [SDK 조사](docs/sdk-feasibility.md)를 따릅니다. 실차 동작과 출시 심사는 미검증입니다.
 
 ## 문서
 
@@ -44,10 +77,12 @@ adb -s emulator-5554 shell am start -n com.example.pleoshellocar/androidx.car.ap
 - [테스트 계획](docs/test-plan.md)
 - [에뮬레이터 검증](docs/emulator-validation.md)
 - [공모전 데모](docs/contest-demo.md)
+- [TMAP 실 API 검증](docs/tmap-live-validation.md)
+- [릴리스 하드닝 검증](docs/release-hardening-validation.md)
 
 ## 향후 개발
 
-호환성이 확인된 Pleos 차량·ETA Provider, 호스트 검증 정책, 주문 영속화 및 서버 연동, 음성 안내를 단계적으로 검토합니다. 개발용 ALLOW_ALL_HOSTS_VALIDATOR는 출시 전에 교체해야 합니다. 실제 결제는 이번 MVP 범위에서 제외합니다. 템플릿 구동 성공만으로 음식 주문 UI의 심사 적합성을 보장하지 않습니다. v0.2.0 태그와 원격 Push/PR은 사용자 승인 후 진행합니다.
+호환성이 확인된 Pleos 차량·ETA Provider, 호스트 검증 정책, 주문 영속화 및 서버 연동, 음성 안내를 단계적으로 검토합니다. 개발용 ALLOW_ALL_HOSTS_VALIDATOR는 출시 전에 교체해야 합니다. 실제 결제는 이번 MVP 범위에서 제외합니다. 템플릿 구동 성공만으로 음식 주문 UI의 심사 적합성을 보장하지 않습니다.
 
 
 ## v0.3.0 — TMAP ETA 확장 (로컬 개발)

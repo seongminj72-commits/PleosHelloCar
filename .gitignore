@@ -19,6 +19,7 @@ local.properties
 **/build/
 .kotlin/
 *.apk
+!apk/*_release.apk
 *.aab
 *.jks
 *.keystore
