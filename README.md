@@ -8,7 +8,7 @@ Pleos DriveFlow — 도착 예정 시간과 매장 준비 시간을 맞춰 주�
 
 ### 실행 방법
 
-제출용 release APK가 등록된 후, 저장소 루트에서 연결된 에뮬레이터 한 대를 대상으로 실행합니다. 현재 APK 등록은 대기 중입니다.
+저장소 루트에서 연결된 에뮬레이터 한 대를 대상으로 제출용 release APK를 실행합니다.
 
 ```bash
 adb install -r "apk/조성민_PleosDriveFlow_release.apk"
@@ -27,9 +27,9 @@ Real TMAP ETA는 debug 빌드 + 로컬 프록시 + 운영자 TMAP 키가 필요�
 
 ### APK 위치
 
-- 예정 경로: `apk/조성민_PleosDriveFlow_release.apk`
-- 등록 상태: **APK 대기 — 아직 저장소에 포함되지 않았습니다.**
-- SHA-256: 미산출(실제 제출 APK 등록 후 계산).
+- 경로: `apk/조성민_PleosDriveFlow_release.apk`
+- 파일 크기: 3,694,371 bytes (50MB 이하).
+- SHA-256: `b2537264dc23e58711a883354ecb33793e83b823f16dede132ebb8a86dd13453`
 - 빌드·복사 절차: [apk/README.md](apk/README.md)
 - 파일이 50MB를 넘으면 저장소에 커밋하지 않고 GitHub Releases에 업로드한 뒤, 이 항목을 해당 Release 페이지 URL과 실제 APK의 SHA-256으로 갱신합니다.
 
