@@ -58,3 +58,12 @@ Virtual Console 공식 가이드는 Motion의 Gear Selection(P/R/N/D)을 설명�
 - [Android LocationManager](https://developer.android.com/reference/android/location/LocationManager)
 - [CarContext 권한 요청](https://developer.android.com/reference/androidx/car/app/CarContext)
 - [TMAP 구현과 실행 방법](tmap-integration.md)
+
+
+## 2026-11-08~09 차량 상태 추가 조사
+
+| 기능 | 새로 확인한 사실 | 구현 상태 |
+|---|---|---|
+| 차량 상태 | 공식 SDK 정책은 속도·기어를 AAOS Car API로 분류. Vehicle 2.3.2 POM 무인증 조회 성공, 로컬 Vehicle Service 2.3.22 설치 확인. Vehicle SDK의 기어·속도 메서드·단위·권한은 특정하지 못함 | SDK 연동 중단. 순수 Kotlin 판정기, Mock/Real 전환, REAL 부재 시 UNKNOWN, 화면 listener 기반 작업만 구현 |
+
+이전 날짜의 차량 API 미확인 기록은 당시 상태로 유지한다. 서비스가 설치되어 있다는 사실만으로 실제 신호 연동 성공을 의미하지 않는다. 공식 [SDK API 정책](https://document.pleos.ai/en/docs/pleos-only/vehicle-app-planning-guide/pleos-connect-sdk-api)과 [플랫폼 FAQ](https://document.pleos.ai/en/docs/pleos-only/vehicle-app-developer-guide/vehicle-app-faq)는 표준 차량 데이터의 AAOS 접근을 안내한다. 상세 근거·중단 조건·테스트는 [차량 SDK 검증](vehicle-sdk-validation.md)을 참고한다. 대안은 제안만 했으며 구현하지 않았다.

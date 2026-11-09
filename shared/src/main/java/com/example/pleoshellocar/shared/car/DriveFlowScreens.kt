@@ -14,9 +14,10 @@ import com.example.pleoshellocar.shared.payment.*
 /** MVP의 자체 행 수 제한. 호스트별 제약과 카테고리 심사는 별도 검증한다. */
 abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowController) : Screen(context) {
     private val etaChanged: () -> Unit = { invalidate() }
+    private val vehicleChanged: () -> Unit = { invalidate() }
     init { lifecycle.addObserver(object : DefaultLifecycleObserver {
-        override fun onStart(owner: LifecycleOwner) { flow.navigation.addListener(etaChanged) }
-        override fun onStop(owner: LifecycleOwner) { flow.navigation.removeListener(etaChanged) }
+        override fun onStart(owner: LifecycleOwner) { flow.navigation.addListener(etaChanged); flow.vehicle.addListener(vehicleChanged) }
+        override fun onStop(owner: LifecycleOwner) { flow.navigation.removeListener(etaChanged); flow.vehicle.removeListener(vehicleChanged) }
         override fun onResume(owner: LifecycleOwner) { invalidate() }
     }) }
 
@@ -87,7 +88,10 @@ abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowCont
     }
 
     /** Mock 상태 표시 - 실제 차량 신호와 명확히 구분 */
-    protected fun mockBadge(): String = "[데모] ${flow.vehicle.getVehicleState()} · 실제 차량 신호 아님"
+    protected fun mockBadge(): String = when (flow.vehicle.source) {
+        VehicleStateSource.MOCK -> "[데모] Mock 차량 상태: ${flow.vehicle.getVehicleState()} · 실제 차량 신호 아님"
+        VehicleStateSource.VEHICLE_SDK -> "실제 차량 신호: ${flow.vehicle.getVehicleState()} (${flow.vehicle.reason})"
+    }
 }
 
 class HomeScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
@@ -202,51 +206,63 @@ class OrderStatusScreen(context: CarContext, flow: DriveFlowController) : FlowSc
 
 class DemoSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
     override fun onGetTemplate(): Template {
-        val vehicle = flow.vehicle as MockVehicleStateProvider
+        val vehicle = flow.vehicle as? SwitchableVehicleStateProvider
+        val mock = vehicle?.mock ?: (flow.vehicle as? MockVehicleStateProvider)
         val navigation = (flow.navigation as? TmapNavigationEtaProvider)?.mock
-            ?: (flow.navigation as MockNavigationEtaProvider)
-        val payment = flow.payment as MockPaymentSimulator
-
-        val vehicleStateText = when (vehicle.state) {
-            VehicleState.UNKNOWN -> "UNKNOWN (알 수 없음) — 모든 조작 제한"
-            VehicleState.PARKED -> "PARKED (정차) — 모든 조작 허용"
-            VehicleState.DRIVING -> "DRIVING (주행) — 조작 제한됨"
-        }
+            ?: (flow.navigation as? MockNavigationEtaProvider)
+        val payment = flow.payment as? MockPaymentSimulator
+        val stateRow = if (flow.vehicle.source == VehicleStateSource.MOCK && mock != null) {
+            row("차량 상태", "${mock.state} · 탭하여 순환 (Mock)", parked = true) {
+                if (vehicle != null) vehicle.cycleMockState() else {
+                    mock.state = when (mock.state) {
+                        VehicleState.UNKNOWN -> VehicleState.PARKED
+                        VehicleState.PARKED -> VehicleState.DRIVING
+                        VehicleState.DRIVING -> VehicleState.UNKNOWN
+                    }
+                }
+            }
+        } else row("실제 신호: ${flow.vehicle.getVehicleState()}", flow.vehicle.reason)
 
         val rows = listOf(
-            row("차량 상태", "$vehicleStateText · 탭하여 순환", parked = true) {
-                vehicle.state = when (vehicle.state) {
-                    VehicleState.UNKNOWN -> VehicleState.PARKED
-                    VehicleState.PARKED -> VehicleState.DRIVING
-                    else -> VehicleState.UNKNOWN
-                }
-            },
-            row("Mock ETA 설정", "${navigation.minutes?.let { "$it 분" } ?: "정보 없음"} · 탭하여 변경 (8→10→3→없음)", parked = true) {
+            stateRow,
+            if (vehicle != null) row("차량 상태 모드: ${if (vehicle.mode == VehicleStateMode.MOCK) "Mock" else "실제 차량"}",
+                "탭하여 전환 · 실제 신호 실패 시 UNKNOWN", parked = true) {
+                // Host parking gate permits explicit recovery from REAL UNKNOWN to demo mode.
+                vehicle.setMode(if (vehicle.mode == VehicleStateMode.MOCK) VehicleStateMode.REAL else VehicleStateMode.MOCK)
+            } else row("차량 상태 모드", mockBadge()),
+            if (navigation != null) row("Mock ETA 설정", "${navigation.minutes?.let { "$it 분" } ?: "정보 없음"} · 탭하여 변경 (8→10→3→없음)", parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle)
                 val values = listOf(8, 10, 3, null)
                 navigation.minutes = values[(values.indexOf(navigation.minutes) + 1) % values.size]
+            } else row("ETA 상태", flow.navigation.statusLabel),
+            row("준비시간 / 예상 지연", "준비 ${flow.preparationOverride?.let { "$it 분" } ?: "매장 기본값"} · 지연 ${flow.possibleDelay}분 · 여유 1분", parked = true) {
+                screenManager.push(TimingSettingsScreen(carContext, flow))
             },
-            row("매장 준비시간 덮어쓰기", "${flow.preparationOverride?.let { "$it 분" } ?: "매장 기본값 사용"} · 탭: 기본→5→6→기본", parked = true) {
-                flow.preparationOverride = when (flow.preparationOverride) {
-                    null -> 5
-                    5 -> 6
-                    else -> null
-                }
-            },
-            row("예상 지연 / 안전 여유", "지연 ${flow.possibleDelay}분 · 여유 1분 (모두 추정값)", parked = true) {
-                flow.possibleDelay = if (flow.possibleDelay == 0) 2 else 0
-            },
-            row("다음 결제 실패 시뮬레이션", "${if (payment.failNext) "실패로 설정됨" else "정상"} · 탭하여 전환", parked = true) {
+            if (payment != null) row("다음 결제 실패 시뮬레이션", "${if (payment.failNext) "실패로 설정됨" else "정상"} · 탭하여 전환", parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
                 payment.failNext = !payment.failNext
-            },
+            } else row("결제 상태", "모의 결제 설정 없음"),
             row("ETA 연결 설정", flow.navigation.statusLabel, parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle)
                 screenManager.push(EtaSettingsScreen(carContext, flow))
             }
         )
-
-        return list("데모 설정 (실제 신호 아님)", rows)
+        return list("서비스 상태 / 데모 설정", rows)
     }
+}
+
+/** Separate timing controls keep the parent list within its six-row limit. */
+class TimingSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template = list("준비시간 / 예상 지연", listOf(
+        row("매장 준비시간 덮어쓰기", "${flow.preparationOverride?.let { "$it 분" } ?: "매장 기본값 사용"} · 기본→5→6→기본", parked = true) {
+            InteractionPolicy.requireParked(flow.vehicle)
+            flow.preparationOverride = when (flow.preparationOverride) { null -> 5; 5 -> 6; else -> null }
+        },
+        row("예상 지연 / 안전 여유", "지연 ${flow.possibleDelay}분 · 여유 1분 (추정값)", parked = true) {
+            InteractionPolicy.requireParked(flow.vehicle)
+            flow.possibleDelay = if (flow.possibleDelay == 0) 2 else 0
+        }
+    ))
 }
 
 class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
