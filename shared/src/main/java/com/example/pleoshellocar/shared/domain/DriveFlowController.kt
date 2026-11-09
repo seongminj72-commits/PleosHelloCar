@@ -38,8 +38,11 @@ class DriveFlowController(
         quantity(it.id).takeIf { n -> n > 0 }?.let { n -> OrderLine(it, n) }
     }
     fun totalWon() = lines().sumOf { it.totalWon }
+    /** 매장 기본값 + 장바구니(메뉴·수량) 반영 준비시간. 데모 설정의 덮어쓰기 값이 있으면 그 값을 그대로 쓴다. */
+    fun preparationEstimate(): PreparationEstimate = preparationOverride?.let { PreparationEstimate(it, 0, 0) }
+        ?: PreparationEstimate.of(selectedStore?.preparationMinutes ?: 6, lines())
     fun recommendation() = OrderTimingCalculator().recommend(navigation.getEstimatedArrivalMinutes(),
-        preparationOverride ?: selectedStore?.preparationMinutes ?: 6, possibleDelay = possibleDelay)
+        preparationEstimate().totalMinutes, possibleDelay = possibleDelay)
     fun checkout(): Order {
         InteractionPolicy.requireParked(vehicle)
         val store = requireNotNull(selectedStore) { "매장을 선택하세요." }
