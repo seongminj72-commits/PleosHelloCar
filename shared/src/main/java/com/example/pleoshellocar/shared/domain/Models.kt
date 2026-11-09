@@ -1,7 +1,8 @@
 package com.example.pleoshellocar.shared.domain
 
-data class MenuItem(val id: String, val name: String, val priceWon: Int) {
-    init { require(id.isNotBlank() && priceWon in 1..100_000) }
+/** extraPreparationMinutes: 매장 기본 준비시간에 더해지는 메뉴별 추가 제조시간(분, 데모 추정값). */
+data class MenuItem(val id: String, val name: String, val priceWon: Int, val extraPreparationMinutes: Int = 0) {
+    init { require(id.isNotBlank() && priceWon in 1..100_000 && extraPreparationMinutes in 0..30) }
 }
 data class Store(val id: String, val name: String, val preparationMinutes: Int,
     val acceptingOrders: Boolean, val menu: List<MenuItem>,
