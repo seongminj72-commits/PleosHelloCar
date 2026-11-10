@@ -11,3 +11,10 @@ cp automotive/build/outputs/apk/release/automotive-release.apk "apk/조성민_Pl
 
 3. 파일 크기를 확인합니다. 50MB를 넘으면 커밋하지 않고 GitHub Releases에 업로드하여 루트 README의 APK 위치를 해당 Release 페이지 URL로 갱신합니다.
 4. 서명 검증, SHA-256 계산 및 에뮬레이터 설치·실행 검증 후 루트 README에 실제 APK의 SHA-256을 기록하고 커밋합니다. debug APK는 등록하지 않습니다.
+
+## v0.4.0 제출 APK
+
+- 파일: `조성민_PleosDriveFlow_release.apk`
+- 크기: 3,734,970 bytes (50MB 미만)
+- SHA-256: `f0faf2afeb610c86a7b6e5c97993157b431e0861ded86ee429b8f8175448496a`
+- 에뮬레이터에서 검증한 APK와 커밋 대상 APK의 SHA-256이 같습니다. [검증 기록](../docs/v0.4.0-release-validation.md)

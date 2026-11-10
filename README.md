@@ -28,8 +28,8 @@ Real TMAP ETA는 debug 빌드 + 로컬 프록시 + 운영자 TMAP 키가 필요�
 ### APK 위치
 
 - 경로: `apk/조성민_PleosDriveFlow_release.apk`
-- 파일 크기: 3,694,371 bytes (50MB 이하).
-- SHA-256: `b2537264dc23e58711a883354ecb33793e83b823f16dede132ebb8a86dd13453`
+- 파일 크기: 3,734,970 bytes (50MB 이하).
+- SHA-256: `f0faf2afeb610c86a7b6e5c97993157b431e0861ded86ee429b8f8175448496a`
 - 빌드·복사 절차: [apk/README.md](apk/README.md)
 - 파일이 50MB를 넘으면 저장소에 커밋하지 않고 GitHub Releases에 업로드한 뒤, 이 항목을 해당 Release 페이지 URL과 실제 APK의 SHA-256으로 갱신합니다.
 
@@ -41,7 +41,7 @@ Android Automotive OS & Pleos Connect Application Development
 
 도착시간과 매장 준비시간을 따로 확인해야 하는 불편을 줄이는 것이 목표입니다. 홈, 가상 매장 3곳, 커피 메뉴 4종, 수량·합계·주문 확인·취소, ETA 추천, 모의 결제와 주문번호, 픽업 상태·텍스트 알림을 구현했습니다. 차량 상태가 UNKNOWN/DRIVING이면 도메인에서 주문 조작을 제한합니다.
 
-차량 상태·매장·결제·주문 상태는 Mock입니다. ETA는 기본 Mock이며 설정에서 TMAP 실제 ETA(개발 프록시)로 전환할 수 있습니다. 실제 매장 API, 금융 결제 및 차량 신호는 미연동입니다. 데모 결제 — 실제 금액이 청구되지 않습니다. 카드·계좌·결제 토큰을 수집하지 않습니다. 주문은 세션 메모리이며 재시작하면 초기화됩니다.
+차량 상태와 ETA의 기본값은 Mock이며, 매장·결제·주문 상태는 시뮬레이션입니다. 설정에서 TMAP 실제 ETA(개발 프록시)로 전환할 수 있습니다. 실제 매장 API와 금융 결제는 미연동입니다. 데모 결제 — 실제 금액이 청구되지 않습니다. 카드·계좌·결제 토큰을 수집하지 않습니다. 주문은 세션 메모리이며 재시작하면 초기화됩니다.
 
 ## 구조 및 환경
 
@@ -64,11 +64,19 @@ adb -s emulator-5554 install -r automotive/build/outputs/apk/debug/automotive-de
 adb -s emulator-5554 shell am start -n com.example.pleoshellocar/androidx.car.app.activity.CarAppActivity
 ```
 
-실제 연결 serial을 사용하세요. APK 위치는 `automotive/build/outputs/apk/debug/automotive-debug.apk`입니다. 호스트를 정차 상태로 두고 서비스 상태에서 Mock UNKNOWN을 PARKED로 바꾼 후 주문합니다. 설정에서 ETA·준비시간·지연·다음 결제 실패를 바꿀 수 있습니다. 주문 상태는 내 주문의 진행 버튼으로 수동 전환합니다.
+실제 연결 serial을 사용하세요. debug APK 위치는 `automotive/build/outputs/apk/debug/automotive-debug.apk`입니다. 호스트를 P·0에 두고 서비스 상태에서 Mock UNKNOWN을 PARKED로 바꾼 뒤 주문합니다. **차량 상태 모드**에서 Mock/실제 차량을 선택할 수 있으며, 실제 차량 모드에 필요한 속도 권한은 같은 화면의 **차량 속도 권한 허용**에서 요청합니다. 실제 DRIVING 신호가 감지되면 Mock이 PARKED여도 주문을 차단합니다. 준비시간과 예상 지연은 **준비시간 / 예상 지연** 하위 화면에서 바꿉니다. 주문 상태는 내 주문의 진행 버튼으로 전환합니다.
 
 ## 검증과 SDK 활용 현황
 
-2026-11-06 자동차·모바일 Debug 빌드 및 Kotlin 테스트 35개(shared 33 = DriveFlowTest 20 + TmapNavigationEtaProviderTest 13, automotive 1, mobile 1)와 Python 서버 테스트 12개 통과를 확인했습니다. 에뮬레이터에서 주문과 픽업 준비까지 실제 화면을 확인했습니다. 현재 위치는 표준 Android 위치 API를 사용합니다. Pleos SDK 차량 신호·TTS는 미연동이며 공식 조사와 미확인 범위는 [SDK 조사](docs/sdk-feasibility.md)를 따릅니다. 실차 동작과 출시 심사는 미검증입니다.
+v0.4.0 후보의 자동차·모바일 debug 빌드와 자동차 미서명 release 빌드가 성공했습니다. 이번 JUnit XML 기준 Kotlin 테스트 91개(shared 85, automotive 5, mobile 1)와 Python 서버 테스트 12개가 통과했습니다. 차량 기어·속도는 Pleos 공식 가이드가 안내하는 AAOS Car API(CarPropertyManager)로 수신하며 Pleos Connect v2.1.0 에뮬레이터에서 debug로 검증했습니다. Pleos Vehicle SDK 클래스는 미사용입니다. 현재 위치는 표준 Android 위치 API를 사용합니다. v0.4.0 서명 APK의 업데이트 설치와 에뮬레이터 실행을 검증했습니다. TTS 연동, 실차 동작과 출시 심사는 미검증입니다. [v0.4.0 릴리스 검증](docs/v0.4.0-release-validation.md) [SDK 조사](docs/sdk-feasibility.md) · [AAOS 검증](docs/aaos-vehicle-validation.md)
+
+## v0.4.0 변경 요약
+
+- 도착 전 준비, 동시 준비, 도착 후 대기처럼 결과를 먼저 보여주고 메뉴별 준비시간을 반영합니다. [추천 UX](docs/eta-recommendation-ux.md)
+- 차량 상태를 확인할 수 없거나 주행 중이면 주문을 차단하는 기반과 Mock/실제 차량 모드를 추가했습니다. [차량 상태 기반 검증](docs/vehicle-sdk-validation.md)
+- AAOS Car API로 실제 기어와 속도를 읽습니다. Pleos Connect 에뮬레이터에서 검증했으며 Pleos Vehicle SDK 클래스는 미사용입니다. [AAOS 차량 검증](docs/aaos-vehicle-validation.md)
+- 앱에서 REAL→Mock 전환은 실제 PARKED일 때만 허용하며, Mock 모드에서도 실제 DRIVING 신호를 감지하면 주문을 차단합니다. Pleos 에뮬레이터 호스트에서 D·30km/h에도 정차 전용 행이 눌린 결과를 반영했습니다. [모드 전환 게이트 검증](docs/aaos-vehicle-validation.md)
+- 화면 갱신 때 바뀌던 행 제목을 고정해 호스트가 갱신을 새 단계로 세면서 `OverLimitFlowViolationException`으로 종료되던 문제를 수정했습니다. v0.3.x ETA 연결 설정의 모드 전환에도 같은 잠재 문제가 있었습니다. [크래시 수정 및 반복 검증](docs/aaos-vehicle-validation.md)
 
 ## 문서
 
