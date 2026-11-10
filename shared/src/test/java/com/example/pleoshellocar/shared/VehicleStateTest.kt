@@ -20,7 +20,10 @@ class VehicleStateResolverTest {
     @Test fun driveAndZero() { assertEquals(VehicleState.DRIVING, state(VehicleGear.D, 0.0)) }
     @Test fun reverseAndZero() { assertEquals(VehicleState.DRIVING, state(VehicleGear.R, 0.0)) }
     @Test fun neutralCannotConfirmPark() {
-        for (speed in listOf(0.0, 10.0)) assertEquals(VehicleState.UNKNOWN, state(VehicleGear.N, speed))
+        for (speed in listOf(0.0, 3.0)) assertEquals(VehicleState.UNKNOWN, state(VehicleGear.N, speed))
+    }
+    @Test fun neutralMovingIsDriving() {
+        for (speed in listOf(3.0001, 10.0, 30.0)) assertEquals(VehicleState.DRIVING, state(VehicleGear.N, speed))
     }
     @Test fun speedTenWithoutGear() { assertEquals(VehicleState.DRIVING, state(VehicleGear.UNKNOWN, 10.0)) }
     @Test fun parkedSpeedBoundary() {

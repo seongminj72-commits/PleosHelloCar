@@ -10,6 +10,6 @@ class MyCarAppService : CarAppService() {
     }
 
     override fun onCreateSession(): Session {
-        return MyCarAppSession()
+        return MyCarAppSession(application as? com.example.pleoshellocar.shared.vehicle.VehicleSignalFactory)
     }
 }

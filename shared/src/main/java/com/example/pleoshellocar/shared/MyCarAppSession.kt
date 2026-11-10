@@ -15,11 +15,12 @@ import com.example.pleoshellocar.shared.vehicle.SwitchableVehicleStateProvider
 import com.example.pleoshellocar.shared.navigation.*
 import com.example.pleoshellocar.shared.payment.MockPaymentSimulator
 
-class MyCarAppSession : Session() {
+class MyCarAppSession(private val vehicleFactory: com.example.pleoshellocar.shared.vehicle.VehicleSignalFactory? = null) : Session() {
     override fun onCreateScreen(intent: Intent): Screen {
         val request = AndroidEtaRequest(carContext)
         val navigation = TmapNavigationEtaProvider(request, SystemClock::elapsedRealtime)
-        val vehicle = SwitchableVehicleStateProvider()
+        val real = vehicleFactory?.createVehicleSignal(carContext)
+        val vehicle = SwitchableVehicleStateProvider(real = real)
         val flow = DriveFlowController(vehicle, navigation, MockPaymentSimulator())
         val handler = Handler(Looper.getMainLooper())
         val tick = object : Runnable {
@@ -27,10 +28,10 @@ class MyCarAppSession : Session() {
         }
         navigation.addListener { Log.i("DriveFlowETA", navigation.statusLabel) }
         lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) { navigation.setActive(true); handler.post(tick) }
-            override fun onStop(owner: LifecycleOwner) { handler.removeCallbacks(tick); navigation.setActive(false) }
+            override fun onStart(owner: LifecycleOwner) { real?.start(); navigation.setActive(true); handler.post(tick) }
+            override fun onStop(owner: LifecycleOwner) { real?.stop(); handler.removeCallbacks(tick); navigation.setActive(false) }
             override fun onDestroy(owner: LifecycleOwner) {
-                handler.removeCallbacks(tick); navigation.close(); request.close(); vehicle.close()
+                handler.removeCallbacks(tick); navigation.close(); request.close(); vehicle.close(); real?.close()
             }
         })
         return HomeScreen(carContext, flow)

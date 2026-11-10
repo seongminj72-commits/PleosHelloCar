@@ -11,6 +11,7 @@ val hasReleaseSigning = listOf(
 ).all { it.isPresent }
 
 android {
+    useLibrary("android.car")
     namespace = "com.example.pleoshellocar"
     compileSdk {
         version = release(37)

@@ -226,9 +226,8 @@ class DemoSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowS
         val rows = listOf(
             stateRow,
             if (vehicle != null) row("차량 상태 모드: ${if (vehicle.mode == VehicleStateMode.MOCK) "Mock" else "실제 차량"}",
-                "탭하여 전환 · 실제 신호 실패 시 UNKNOWN", parked = true) {
-                // Host parking gate permits explicit recovery from REAL UNKNOWN to demo mode.
-                vehicle.setMode(if (vehicle.mode == VehicleStateMode.MOCK) VehicleStateMode.REAL else VehicleStateMode.MOCK)
+                "모드 전환 / 차량 권한 · 실패 시 UNKNOWN", parked = true) {
+                screenManager.push(VehicleModeScreen(carContext, flow))
             } else row("차량 상태 모드", mockBadge()),
             if (navigation != null) row("Mock ETA 설정", "${navigation.minutes?.let { "$it 분" } ?: "정보 없음"} · 탭하여 변경 (8→10→3→없음)", parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle)
@@ -284,5 +283,24 @@ class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowSc
             },
             row("연동 범위", "실제 경로 계산 + 가상 매장 테스트 좌표. 주문·결제·차량은 데모입니다.")
         ))
+    }
+}
+
+/** Permission recovery must remain available while the provider reports UNKNOWN. */
+class VehicleModeScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template {
+        val vehicle = flow.vehicle as? SwitchableVehicleStateProvider
+            ?: return list("차량 상태 모드", listOf(row("차량 상태", mockBadge())))
+        val rows = mutableListOf(
+            row("모드: ${vehicle.mode}", mockBadge(), parked = true) {
+                vehicle.setMode(if (vehicle.mode == VehicleStateMode.MOCK) VehicleStateMode.REAL else VehicleStateMode.MOCK)
+            }
+        )
+        if (vehicle.canRequestVehiclePermissions) rows.add(
+            row("차량 속도 권한 허용", "AAOS 차량 API · 거부하면 실제 상태 UNKNOWN", parked = true) {
+                vehicle.requestVehiclePermissions()
+            }
+        )
+        return list("차량 상태 모드", rows)
     }
 }

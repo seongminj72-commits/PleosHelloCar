@@ -43,6 +43,9 @@ class SwitchableVehicleStateProvider(
         mode = value
         notifyChanged()
     }
+    val canRequestVehiclePermissions: Boolean get() = real is ManagedVehicleStateProvider
+    fun requestVehiclePermissions() { if (!closed) (real as? ManagedVehicleStateProvider)?.requestPermissions() }
+
     fun cycleMockState() {
         check(!closed && mode == VehicleStateMode.MOCK) { "실제 차량 모드에서는 Mock 상태를 바꿀 수 없습니다." }
         mock.state = when (mock.state) {
