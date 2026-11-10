@@ -132,3 +132,20 @@ PERF_VEHICLE_SPEED는 공식적으로 후진 시 음수일 수 있다. 이번 �
 
 - 추가: `SwitchableVehicleStateProvider`가 (모드, 상태, 사유)가 실제로 바뀔 때만 화면에 알린다. AAOS 어댑터는 속도 샘플(약 1초 간격)마다 알리므로, 정차 중에도 매초 화면을 다시 그리던 동작을 없앴다.
 - 테스트: shared JVM 85개 통과(Kotlin 2.0.21 + JUnit 4.13.2, CarContext 컴파일 스텁). Gradle·에뮬레이터 재검증은 미실행.
+
+### afa129e A단계 재검증 (2026-11-10)
+
+Pleos Connect v2.1.0(API 34)에 afa129e의 debug APK를 설치하고 앱 데이터와 logcat을 초기화한 뒤 실행했다.
+
+| 항목 | 관찰 결과 |
+|---|---|
+| A1 REAL·D | Mock 전환 거부 토스트 표시 및 REAL·DRIVING 유지 |
+| A2 권한 없음 | 활성 사용자 10의 CAR_SPEED 권한을 ADB로 회수해 REAL·UNKNOWN·권한 필요 상태를 재현했다. Mock 전환 거부 토스트와 REAL 유지를 확인했다. 강제 종료 후 Mock·UNKNOWN 홈으로 시작했다. 권한 대화상자의 거부 버튼은 이 실행에서 사용하지 않았다. |
+| A3 Mock PARKED·실제 D | 홈에 실제 차량 주행 감지 · Mock 상태 무시 표시. 서비스 상태에 실제 주행 감지로 DRIVING 적용 표시. 매장 선택 차단 토스트 확인 |
+| A4 P·0 및 Mock 회귀 | REAL→Mock 허용. Mock PARKED, 매장 A 및 아메리카노 추천, Mock DRIVING 매장 차단, 모의 결제 및 주문번호, 준비 중→픽업 준비 완료→픽업 완료 확인 |
+| A5 로그 | main/system/crash 버퍼 114,698줄에서 OverLimitFlowViolation, FATAL, IllegalAccess, ClassNotFound, NoSuchMethod, NoClassDefFound 일치 0건 |
+| 추가 ① 차량 상태 모드 | P·0에서 같은 화면으로 Mock→REAL→Mock→REAL→Mock 순서의 전환 결과 5개 확인. 시작 상태는 REAL. 크래시 없음 |
+| 추가 ② ETA 연결 설정 | 같은 화면에서 REAL→MOCK→REAL→MOCK→REAL 순서의 전환 결과 5개 확인. 시작 상태는 MOCK. 크래시 없음 |
+| 추가 ③ 서비스 상태 | 화면을 열어 둔 상태에서 Virtual Console P→D→P 왕복 5회. 콘솔에서 매번 DDS ONLINE과 기어 값을 확인했고 마지막에 서비스 상태 화면이 유지됐다. 크래시 없음 |
+
+[화면 캡처](validation-aaos-vehicle/)는 followup-afa129e- 접두사로 저장했다.
