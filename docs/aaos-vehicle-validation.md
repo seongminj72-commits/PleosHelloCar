@@ -1,0 +1,151 @@
+# AAOS 차량 기어·속도 연동 검증
+
+검증: 2026-11-09~10 (KST). 기준 main `614c1da`, 작업 브랜치 `codex/aaos-vehicle-signal`.
+
+## 결과: 부분 성공
+
+Pleos Connect v2.1.0 / API 34에서 AAOS `CarPropertyManager`의 실제 에뮬레이터 기어·속도 신호를 수신했다. P·0은 PARKED, D·0/D·30/N·30은 DRIVING, 권한 거부는 UNKNOWN이다. 이는 에뮬레이터 VHAL 신호 연동이며 실차 검증 또는 Pleos Vehicle SDK 연동 완료를 뜻하지 않는다.
+
+**호스트 정차 전용 버튼 비활성화는 실패했다.** D·30km/h에서도 홈의 `서비스 상태` 행을 눌러 설정에 진입했다. 앱의 주문 도메인 차단은 D·0 및 Mock DRIVING에서 확인했다. 호스트 측 차단과 앱 측 차단을 구분한다. `InteractionPolicy`, `ParkedOnlyOnClickListener`, HostValidator는 변경하지 않았다. 따라서 주행 중 모드 전환 등 호스트만을 신뢰하는 데모 설정의 안전성을 보증하지 않으며, REAL 시연/제출물 갱신 전에 별도 검토가 필요하다.
+
+지정된 중단 조건(라이브러리 빌드 실패, Car 서비스/속성 미지원, 시스템 전용 권한, 콘솔 변경 미수신)은 발생하지 않았다. 전체 성공으로 보고하지 않고 Draft PR로 검토한다.
+
+## API 근거와 호환성
+
+| 항목 | 확인/선택 | 근거 |
+|---|---|---|
+| 연결 | `Car.createCar(context, handler, CAR_WAIT_TIMEOUT_DO_NOT_WAIT, listener)`, `Car.PROPERTY_SERVICE`, `getCarManager`, `disconnect` | [Car](https://developer.android.com/reference/android/car/Car) |
+| 기어 | `VehiclePropertyIds.GEAR_SELECTION`, Int, GLOBAL area 0, ONCHANGE. 사용자 선택 기어가 필요한 앱이므로 CURRENT_GEAR 대신 사용. 콘솔 P/D/N 수신 확인 | [VehiclePropertyIds](https://developer.android.com/reference/android/car/VehiclePropertyIds#GEAR_SELECTION) |
+| 기어 값 | `android.car.VehicleGear.GEAR_PARK/GEAR_DRIVE/GEAR_REVERSE/GEAR_NEUTRAL`; 숫자 하드코딩 없음, 미매핑 UNKNOWN | [VehicleGear](https://developer.android.com/reference/android/car/VehicleGear) |
+| 속도 | `PERF_VEHICLE_SPEED`, Float, GLOBAL area 0, CONTINUOUS, m/s → km/h ×3.6 | [VehiclePropertyIds](https://developer.android.com/reference/android/car/VehiclePropertyIds#PERF_VEHICLE_SPEED) |
+| 권한 | `android.car.permission.CAR_POWERTRAIN` normal, `android.car.permission.CAR_SPEED` dangerous. Pleos 이미지의 `pm list permissions -f -g`에서도 동일 | [AOSP Car manifest](https://android.googlesource.com/platform/packages/services/Car/+/master/service/AndroidManifest.xml) |
+| 구독 | `registerCallback`, `unregisterCallback`, `SENSOR_RATE_ONCHANGE`, `SENSOR_RATE_NORMAL`, `getProperty` | [CarPropertyManager](https://developer.android.com/reference/android/car/hardware/property/CarPropertyManager) |
+| 상태/오류 | `CarPropertyValue.STATUS_AVAILABLE`만 반영, `CarPropertyEventCallback.onChangeEvent/onErrorEvent` | [callback](https://developer.android.com/reference/android/car/hardware/property/CarPropertyManager.CarPropertyEventCallback), [value](https://developer.android.com/reference/android/car/hardware/CarPropertyValue) |
+| VHAL 경로 | 표준 속성을 우선 사용하고 vendor 속성으로 복제하지 않음 | [VHAL special properties](https://source.android.com/docs/automotive/vhal/special-properties) |
+| 템플릿 앱 | CAL은 UI/운전자 주의 분산 제약을 담당. 본 앱의 AAOS 서비스에서 실제 Car API 접근 성공. 다른 호스트/실차 허용까지 일반화하지 않음 | [CAL](https://developer.android.com/training/cars/apps/library) |
+| 콘솔 | 최소 v2.1.0. `adb forward tcp:8088 tcp:8088` 후 로컬 콘솔의 P/D/N 및 ACCEL 사용 | [설정](https://document.pleos.ai/en/docs/connect/guide/getting-started/application-development/use-vehicle-emulator), [조작](https://document.pleos.ai/en/docs/pleos-only/app-test-guide/virtual-console-guide) |
+
+컴파일 SDK 37.0의 optional/android.car.jar를 `useLibrary("android.car")`로 사용한다. Manifest uses-library는 required=false. Android 14 SDK android.car.jar를 javap으로 확인했으며 registerCallback/getProperty/unregisterCallback이 있고 subscribePropertyEvents는 없다. 최신 문서에서는 registerCallback이 deprecated지만 API 34 호환성과 동일 속도의 주기 수신을 위해 기존 API를 선택했다. 의존성 버전 변경 없음.
+
+PERF_VEHICLE_SPEED는 공식적으로 후진 시 음수일 수 있다. 이번 요구사항대로 음수를 절댓값으로 바꾸지 않고 null→UNKNOWN으로 차단한다. 실제 후진 상태의 DRIVING 표시 보장은 별도 검토 대상이다.
+
+## 구현과 신선도
+
+- `AaosVehicleStateProvider`/`VehicleApplication`과 android.car 참조는 automotive에만 존재한다. shared에는 `VehicleSignalFactory`/`ManagedVehicleStateProvider` 주입 계약만 추가했다. mobile은 공급자를 생성하지 않는다.
+- 기본 MOCK 유지. REAL 실패 시 자동 Mock 대체 없음. source는 VEHICLE_SDK라는 기존 enum을 재사용하지만 화면에는 `AAOS 차량 API`라고 표시한다.
+- 기어 매핑과 속도 변환은 Android 클래스 없는 Kotlin 함수로 분리했다. NaN/음수/무한대/변환 overflow는 null.
+- 상태 판정은 기존 `VehicleStateResolver`를 재사용한다. N·속도>3만 DRIVING으로 보완하고, N≤3은 UNKNOWN이다.
+- 마지막 속도 수신 시각에 `SystemClock.elapsedRealtime()`을 사용한다. 3초 만료 Handler 알림을 매번 재예약하고 stop 시 취소한다. 기어는 연결 중 마지막 값을 유지하며 초기 값이 없으면 getProperty로 한 번 읽는다.
+- 메인 Handler로 콜백 상태를 반영한다. 세션 start 연결/구독, stop 구독 해제 및 UNKNOWN, destroy disconnect. 이전 구독 콜백은 식별자로 제외한다.
+- 서비스 단절/권한 오류/초기화 오류는 UNKNOWN 사유로 변환한다. 권한 요청은 차량 모드 하위 메뉴의 ParkedOnly 행이며, UNKNOWN에서 권한을 복구할 수 있도록 주문용 PARKED 판정과 분리했다.
+- 권한 다이얼로그는 이 이미지에서 “위치 정보” 그룹으로 표시된다. 요청한 권한은 CAR_SPEED이며 이 변경으로 GPS 권한을 함께 요청하지 않는다.
+
+## 검증 1~7
+
+| # | 항목 | 결과 |
+|---|---|---|
+| 1 | `./gradlew test :automotive:assembleDebug :mobile:assembleDebug` | 통과. 85개 = shared 79 + automotive 5 + mobile 1 |
+| 2 | Mock 시나리오 1~5 | 통과. UNKNOWN→PARKED, A/아메리카노1/ETA8 추천, DRIVING 매장 차단, 결제 실패→재시도, 준비→픽업 준비→완료 |
+| 3 | REAL 콘솔/권한 | 신호/상태 전환 확인, 호스트 버튼 비활성화 실패. 아래 표 참조 |
+| 4 | 미서명 `:automotive:assembleRelease` | 통과, automotive-release-unsigned.apk 생성. 사용자 서명 release 실행은 미실행(서명 작업을 요청하지 않음). debug 검증 전체 오류 패턴 0건 |
+| 5 | mobile 설치/실행 | Medium_Phone_API_37.0에서 MainActivity 시작 및 Hello Android 화면 확인, 오류 패턴 0건. Android Auto 호스트 세션은 미실행 |
+| 6 | diff/check/비밀값 | git diff --check 통과. 변경 파일과 추가 텍스트 검토, 비밀값 없음. 금지 대상/README/apk 변경 없음 |
+| 7 | 제출 APK 복구 | 통과. debug 삭제→기존 제출 APK 설치→홈/Mock PARKED 전환→홈 복귀 확인. 복구 후 오류 패턴 0건 |
+
+기준 브랜치의 실제 테스트는 80개다(shared 78 = DriveFlow 20 + TMAP 13 + VehicleState 29 + RecommendationUx 16, automotive/mobile 각1). 요청서의 78개와 차이는 추천 테스트가 14개가 아닌 16개이기 때문이다. 신규 5개는 N 주행 경계 1개와 변환 4개다. JUnit XML의 tests/failures/errors로 집계했다.
+
+오류 검색: `FATAL|IllegalAccess|ClassNotFound|NoSuchMethod|NoClassDefFound`. 서명 release 실행 검증과 debug 결과를 혼동하지 않는다.
+
+## REAL 화면별 관찰
+
+| 콘솔 조건 | 앱 상태 | 주문 조작 | 호스트 정차 전용 행 | 반영 시간 |
+|---|---|---|---|---|
+| P·0 | PARKED | 매장 선택→메뉴 진입 가능 | 클릭 가능 | 수신 확인, 정밀 계측 미실행 |
+| D·0 | DRIVING | 매장 선택 시 제한 토스트 | 클릭 전달 후 앱 정책이 차단 | 수신 확인, 정밀 계측 미실행 |
+| D·30 | DRIVING | 앱 정책상 차단; 30 정확한 순간의 주문 탭은 미실행 | 서비스 상태 진입 가능: 비활성화 기대 불충족 | 연속 캡처에서 상태 확인, 정밀 계측 미실행 |
+| N·30 | DRIVING | 앱 정책상 차단; 해당 순간 주문 탭은 미실행 | 비활성화 별도 미확인 | 연속 캡처에서 상태 확인, 정밀 계측 미실행 |
+| P·0 복귀 | PARKED | 매장 선택→메뉴 진입 재확인 | 클릭 가능 | 복귀 확인, 정밀 계측 미실행 |
+| 권한 거부 | UNKNOWN · 권한 필요 | 판정상 차단 | 호스트 P에서 재요청 가능 | 거부 후 화면 확인, 정밀 계측 미실행 |
+
+30km/h는 콘솔 ACCEL 후 자연 감속 구간의 **에뮬레이터 계기판 표시값**이다. 30 고정 속도 주입이나 정확한 부동소수점 원시 속도 계측은 아니다. 캡처는 [validation-aaos-vehicle](validation-aaos-vehicle/)에 저장했다. ADB 재연결로 콘솔 포워딩이 끊어진 경우 재연결했으며, 이를 앱 Car 서비스 연결 실패로 기록하지 않았다.
+
+호스트 조사에서 CarDrivingStateService는 moving 전환을 기록했다. UxRestrictions 설정의 moving/idling은 모두 0x50이었고, 정차 전용 설정 행 클릭이 전달됐다. 원인 확정이나 호스트 설정 변경은 이번 범위에 포함하지 않았다.
+
+## 남은 확인과 사용자 결정
+
+- 제출 APK 갱신 여부 및 REAL 시연 사용 여부는 사용자 결정이다. 기존 제출 APK/Release는 변경하지 않는다.
+- 호스트 정차 게이트 및 모드 전환 안전성 확인 전에는 실제 주행 환경용 완료 버전으로 취급하지 않는다.
+- 신호 강제 단절/3초 만료의 기기 UI 재현, 정밀 전파 지연 계측, 사용자 서명 R8 실행은 미실행. 신선도/잘못된 값/연결 상태 판정은 기존 JVM 테스트가 포함한다.
+- 실차, 다른 호스트, 후진 음수 속도, Android Auto 차량 호스트 세션은 미검증이다.
+
+## 제출본 복구
+
+기존 `apk/조성민_PleosDriveFlow_release.apk`를 다시 설치했다. SHA-256 `b2537264dc23e58711a883354ecb33793e83b823f16dede132ebb8a86dd13453`는 작업 전과 동일하다. 호스트 P·0, 앱 Mock PARKED 홈 화면으로 복구했으며 저장소의 제출 파일 내용은 변경하지 않았다.
+
+## 후속 수정 — 앱 자체 모드 전환 게이트 (2026-11-10, Claude)
+
+위 검증에서 D·30에도 호스트 정차 전용 행이 눌렸으므로, 호스트 게이트에만 의존하던 "차량 상태 모드" 전환에 앱 자체 확인을 추가했다. 원칙: **Mock은 제한을 더할 수만 있고, 실제 주행 신호를 풀 수 없다.**
+
+| 경우 | 변경 전 | 변경 후 |
+|---|---|---|
+| REAL · DRIVING → Mock 전환 | 허용(호스트 게이트만 의존). Mock이 PARKED면 주행 중 주문 가능 | 거부, 토스트 안내 |
+| REAL · UNKNOWN(신호 끊김·권한 거부) → Mock 전환 | 허용 | 거부. 앱을 재시작하면 기본 Mock 모드로 시작 |
+| REAL · PARKED → Mock 전환 | 허용 | 허용 |
+| 실제 공급자 없음(mobile 등) → Mock 전환 | 허용 | 허용(비교할 실제 신호 없음) |
+| MOCK 모드, Mock PARKED, 실제 신호 DRIVING | PARKED(주문 가능) | DRIVING, 사유 "실제 차량 주행 감지 · Mock 상태 무시" |
+| MOCK 모드, 실제 신호 PARKED/UNKNOWN/실패 | Mock 값 | Mock 값(변경 없음, 시연 유지) |
+
+- MOCK 모드에서도 실제 신호 변경 시 화면을 갱신한다.
+- 데모 설정의 Mock 행에 실제 주행 감지로 적용된 상태를 함께 표시한다.
+- 테스트: 기존 `forwardsOnlyActiveSourceEvents`를 새 동작에 맞게 `forwardsRealEventsInBothModesAndMockOnlyInMock`으로 바꾸고 5개를 추가했다. Kotlin 2.0.21 + JUnit 4.13.2로 shared 순수 JVM 소스(CarContext 컴파일 스텁 사용)와 shared 테스트 5개 클래스 실행: 84개 통과.
+- 미실행: Gradle 전체 빌드와 에뮬레이터 확인. 확인할 것은 REAL·D에서 Mock 전환 시 거부 토스트, MOCK·Mock PARKED·콘솔 D에서 매장 선택 차단, 콘솔 P·0에서 Mock 시연 정상.
+
+### A단계 에뮬레이터 검증 (2026-11-10)
+
+대상은 `d84c6b0` debug APK와 Pleos Connect v2.1.0(API 34)이다. `:automotive:assembleDebug` 성공 후 APK를 설치했다.
+
+| 항목 | 결과 |
+|---|---|
+| A1 REAL·D에서 Mock 전환 차단 | 미실행. 정차 상태의 모드 화면 검증 중 크래시가 재현돼 D 시나리오까지 진행하지 못했다. |
+| A2 권한 거부·UNKNOWN 및 재시작 | 부분 확인. 권한 요청 화면에 REAL·UNKNOWN·권한 필요가 표시됐다. 재시작 후 Mock·UNKNOWN 홈을 확인했다. 권한 거부 상태에서 Mock 전환 차단 토스트와 REAL 유지 여부는 크래시로 확인하지 못했다. |
+| A3 Mock PARKED·실제 D | 미실행. 반복 크래시 조사에서 중단했다. |
+| A4 P·0 전환과 Mock 시나리오 1~5 | 미실행. 반복 크래시 조사에서 중단했다. |
+| A5 오류 패턴 0건 | 실패. DriveFlow 프로세스에서 `FATAL EXCEPTION: main` 2건을 확인했다. |
+
+20:33:47과 20:34:11에 앱이 종료됐다. 예외는 `HostException: Remote getTemplate onSuccess call failed`이며, 하위 원인은 호스트의 `OverLimitFlowViolationException: Unsupported template type as the last step in a task. [template: ListTemplate]`이다. P·0에서 설정과 모드 화면을 연속 조작하는 구간에서 재현했다. 호스트가 마지막 단계에 전달된 ListTemplate을 거부한 것은 확인했으며, 어느 화면 갱신이 단계 한도에 도달하게 했는지는 확인하지 못했다. 코드 수정 없이 결과를 기록했다.
+
+화면 증거는 [권한 요청](validation-aaos-vehicle/followup-permission.png), [재시작 Mock 홈](validation-aaos-vehicle/followup-restart-mock.png), [크래시 후 화면](validation-aaos-vehicle/followup-after-crash.png)에 있다.
+
+## 크래시 원인과 수정 (2026-11-10, Claude)
+
+원인: 화면을 다시 그릴 때 행 제목이 바뀌었다. Car App Library 규칙상 ListTemplate은 "템플릿 제목이 같고, 행 개수와 각 행의 제목이 같을 때만" 갱신(refresh)으로 인정되고, 그렇지 않으면 새 단계로 센다. 한 태스크는 5단계를 넘을 수 없고 5번째 단계에 List/Grid 템플릿을 둘 수 없으므로, 홈(1) → 서비스 상태(2) → 차량 상태 모드(3)에서 모드를 두 번 바꾸면 제목 "모드: MOCK"/"모드: REAL"이 바뀌어 4·5단계가 되고, 5번째 ListTemplate을 호스트가 거부해 앱이 종료된다(`OverLimitFlowViolationException`). 실제 신호 상태가 바뀌어 서비스 상태 화면의 "실제 신호: PARKED/DRIVING" 제목이 바뀌는 경우도 같다.
+
+- 근거: [ListTemplate 레퍼런스(Template Restrictions)](https://developer.android.com/reference/kotlin/androidx/car/app/model/ListTemplate), [Plan task flows](https://developer.android.com/design/ui/cars/guides/ux-requirements/plan-task-flows)
+- 수정: 다시 그려지는 행의 제목을 고정하고 바뀌는 값은 본문으로 옮겼다.
+
+| 화면 | 변경 전 제목 | 변경 후 제목 (바뀌는 값은 본문) |
+|---|---|---|
+| 서비스 상태 — 차량 상태(실제 모드) | 실제 신호: {상태} | 차량 상태 |
+| 서비스 상태 — 차량 상태 모드 | 차량 상태 모드: Mock/실제 차량 | 차량 상태 모드 |
+| 차량 상태 모드 — 전환 행 | 모드: {MOCK/REAL} | 모드 |
+| ETA 연결 설정 — 전환 행 (v0.3.0부터 있던 같은 문제) | 모드: {MOCK/REAL} | ETA 모드 |
+
+- 추가: `SwitchableVehicleStateProvider`가 (모드, 상태, 사유)가 실제로 바뀔 때만 화면에 알린다. AAOS 어댑터는 속도 샘플(약 1초 간격)마다 알리므로, 정차 중에도 매초 화면을 다시 그리던 동작을 없앴다.
+- 테스트: shared JVM 85개 통과(Kotlin 2.0.21 + JUnit 4.13.2, CarContext 컴파일 스텁). Gradle·에뮬레이터 재검증은 미실행.
+
+### afa129e A단계 재검증 (2026-11-10)
+
+Pleos Connect v2.1.0(API 34)에 afa129e의 debug APK를 설치하고 앱 데이터와 logcat을 초기화한 뒤 실행했다.
+
+| 항목 | 관찰 결과 |
+|---|---|
+| A1 REAL·D | Mock 전환 거부 토스트 표시 및 REAL·DRIVING 유지 |
+| A2 권한 없음 | 활성 사용자 10의 CAR_SPEED 권한을 ADB로 회수해 REAL·UNKNOWN·권한 필요 상태를 재현했다. Mock 전환 거부 토스트와 REAL 유지를 확인했다. 강제 종료 후 Mock·UNKNOWN 홈으로 시작했다. 권한 대화상자의 거부 버튼은 이 실행에서 사용하지 않았다. |
+| A3 Mock PARKED·실제 D | 홈에 실제 차량 주행 감지 · Mock 상태 무시 표시. 서비스 상태에 실제 주행 감지로 DRIVING 적용 표시. 매장 선택 차단 토스트 확인 |
+| A4 P·0 및 Mock 회귀 | REAL→Mock 허용. Mock PARKED, 매장 A 및 아메리카노 추천, Mock DRIVING 매장 차단, 모의 결제 및 주문번호, 준비 중→픽업 준비 완료→픽업 완료 확인 |
+| A5 로그 | main/system/crash 버퍼 114,698줄에서 OverLimitFlowViolation, FATAL, IllegalAccess, ClassNotFound, NoSuchMethod, NoClassDefFound 일치 0건 |
+| 추가 ① 차량 상태 모드 | P·0에서 같은 화면으로 Mock→REAL→Mock→REAL→Mock 순서의 전환 결과 5개 확인. 시작 상태는 REAL. 크래시 없음 |
+| 추가 ② ETA 연결 설정 | 같은 화면에서 REAL→MOCK→REAL→MOCK→REAL 순서의 전환 결과 5개 확인. 시작 상태는 MOCK. 크래시 없음 |
+| 추가 ③ 서비스 상태 | 화면을 열어 둔 상태에서 Virtual Console P→D→P 왕복 5회. 콘솔에서 매번 DDS ONLINE과 기어 값을 확인했고 마지막에 서비스 상태 화면이 유지됐다. 크래시 없음 |
+
+[화면 캡처](validation-aaos-vehicle/)는 followup-afa129e- 접두사로 저장했다.

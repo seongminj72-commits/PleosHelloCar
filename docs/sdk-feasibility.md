@@ -67,3 +67,12 @@ Virtual Console 공식 가이드는 Motion의 Gear Selection(P/R/N/D)을 설명�
 | 차량 상태 | 공식 SDK 정책은 속도·기어를 AAOS Car API로 분류. Vehicle 2.3.2 POM 무인증 조회 성공, 로컬 Vehicle Service 2.3.22 설치 확인. Vehicle SDK의 기어·속도 메서드·단위·권한은 특정하지 못함 | SDK 연동 중단. 순수 Kotlin 판정기, Mock/Real 전환, REAL 부재 시 UNKNOWN, 화면 listener 기반 작업만 구현 |
 
 이전 날짜의 차량 API 미확인 기록은 당시 상태로 유지한다. 서비스가 설치되어 있다는 사실만으로 실제 신호 연동 성공을 의미하지 않는다. 공식 [SDK API 정책](https://document.pleos.ai/en/docs/pleos-only/vehicle-app-planning-guide/pleos-connect-sdk-api)과 [플랫폼 FAQ](https://document.pleos.ai/en/docs/pleos-only/vehicle-app-developer-guide/vehicle-app-faq)는 표준 차량 데이터의 AAOS 접근을 안내한다. 상세 근거·중단 조건·테스트는 [차량 SDK 검증](vehicle-sdk-validation.md)을 참고한다. 대안은 제안만 했으며 구현하지 않았다.
+
+
+## 2026-11-10 추가 조사 — AAOS 차량 상태 경로
+
+| 대상 | 추가 결과 |
+|---|---|
+| 실제 차량 상태 | Pleos SDK 대신 automotive 전용 AAOS CarPropertyManager로 GEAR_SELECTION/PERF_VEHICLE_SPEED 수신 확인. P·0 PARKED, D·0/D·30/N·30 DRIVING, 권한 거부 UNKNOWN. CAR_POWERTRAIN normal/CAR_SPEED dangerous이며 Pleos Connect v2.1.0 API34 일반 debug 앱에서 동작. 호스트 정차 전용 행 비활성화는 기대와 달라 전체 결과는 부분 성공. |
+
+기존 조사 날짜와 SDK 미연동 결론은 당시 기록으로 유지한다. 이번 결과는 에뮬레이터 신호이며 실차 또는 Pleos Vehicle SDK 검증이 아니다. API 근거, 모듈 경계, 신선도 및 남은 검증은 [AAOS 차량 검증](aaos-vehicle-validation.md)을 참고한다. 제출 APK는 교체하지 않았다.

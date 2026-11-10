@@ -20,7 +20,10 @@ class VehicleStateResolverTest {
     @Test fun driveAndZero() { assertEquals(VehicleState.DRIVING, state(VehicleGear.D, 0.0)) }
     @Test fun reverseAndZero() { assertEquals(VehicleState.DRIVING, state(VehicleGear.R, 0.0)) }
     @Test fun neutralCannotConfirmPark() {
-        for (speed in listOf(0.0, 10.0)) assertEquals(VehicleState.UNKNOWN, state(VehicleGear.N, speed))
+        for (speed in listOf(0.0, 3.0)) assertEquals(VehicleState.UNKNOWN, state(VehicleGear.N, speed))
+    }
+    @Test fun neutralMovingIsDriving() {
+        for (speed in listOf(3.0001, 10.0, 30.0)) assertEquals(VehicleState.DRIVING, state(VehicleGear.N, speed))
     }
     @Test fun speedTenWithoutGear() { assertEquals(VehicleState.DRIVING, state(VehicleGear.UNKNOWN, 10.0)) }
     @Test fun parkedSpeedBoundary() {
@@ -107,15 +110,65 @@ class SwitchableVehicleStateProviderTest {
         provider.setMode(VehicleStateMode.REAL)
         assertEquals(VehicleState.UNKNOWN, provider.getVehicleState())
     }
-    @Test fun forwardsOnlyActiveSourceEvents() {
+    @Test fun forwardsRealEventsInBothModesAndMockOnlyInMock() {
         val real = RealProvider(); val provider = SwitchableVehicleStateProvider(real = real)
         var changes = 0; provider.addListener { changes++ }
-        real.changed(); assertEquals(0, changes)
-        provider.cycleMockState(); assertEquals(1, changes)
-        provider.setMode(VehicleStateMode.REAL); assertEquals(2, changes)
-        provider.mock.state = VehicleState.DRIVING; assertEquals(2, changes)
+        real.changed(); assertEquals(0, changes)   // nothing visible changed
+        real.state = VehicleState.DRIVING; real.changed(); assertEquals(1, changes)   // MOCK shows real DRIVING
+        real.state = VehicleState.PARKED; real.changed(); assertEquals(2, changes)
+        provider.cycleMockState(); assertEquals(3, changes)
+        provider.setMode(VehicleStateMode.REAL); assertEquals(4, changes)
+        provider.mock.state = VehicleState.DRIVING; assertEquals(4, changes)
         real.state = VehicleState.DRIVING; real.changed()
-        assertEquals(3, changes); assertEquals(VehicleState.DRIVING, provider.getVehicleState())
+        assertEquals(5, changes); assertEquals(VehicleState.DRIVING, provider.getVehicleState())
+    }
+    @Test fun repeatedIdenticalSamplesDoNotNotify() {
+        val real = RealProvider(); val provider = SwitchableVehicleStateProvider(real = real)
+        provider.setMode(VehicleStateMode.REAL)
+        var changes = 0; provider.addListener { changes++ }
+        repeat(10) { real.changed() }   // e.g. 1 Hz speed samples while parked
+        assertEquals(0, changes)
+        real.fail = true; real.changed(); assertEquals(1, changes)   // expiry/failure becomes visible
+        real.changed(); assertEquals(1, changes)
+    }
+    @Test fun realDrivingBlocksReturnToMock() {
+        val real = RealProvider().apply { state = VehicleState.DRIVING }
+        val provider = SwitchableVehicleStateProvider(MockVehicleStateProvider(VehicleState.PARKED), real)
+        provider.setMode(VehicleStateMode.REAL)
+        try { provider.setMode(VehicleStateMode.MOCK); fail("REAL DRIVING must not switch to MOCK") }
+        catch (_: IllegalStateException) { }
+        assertEquals(VehicleStateMode.REAL, provider.mode)
+        assertEquals(VehicleState.DRIVING, provider.getVehicleState())
+    }
+    @Test fun realUnknownBlocksReturnToMock() {
+        val real = RealProvider(); val provider = SwitchableVehicleStateProvider(MockVehicleStateProvider(VehicleState.PARKED), real)
+        provider.setMode(VehicleStateMode.REAL); real.fail = true
+        try { provider.setMode(VehicleStateMode.MOCK); fail("REAL UNKNOWN must not switch to MOCK") }
+        catch (_: IllegalStateException) { }
+        assertEquals(VehicleStateMode.REAL, provider.mode)
+    }
+    @Test fun realParkedAllowsReturnToMock() {
+        val real = RealProvider(); val provider = SwitchableVehicleStateProvider(real = real)
+        provider.setMode(VehicleStateMode.REAL); provider.setMode(VehicleStateMode.MOCK)
+        assertEquals(VehicleStateMode.MOCK, provider.mode)
+    }
+    @Test fun mockParkedCannotUnlockWhileRealDriving() {
+        val real = RealProvider().apply { state = VehicleState.DRIVING }
+        val provider = SwitchableVehicleStateProvider(MockVehicleStateProvider(VehicleState.PARKED), real)
+        assertEquals(VehicleStateMode.MOCK, provider.mode)
+        assertEquals(VehicleState.DRIVING, provider.getVehicleState())
+        assertTrue(provider.reason.contains("Mock 상태 무시"))
+        val flow = DriveFlowController(provider, MockNavigationEtaProvider(), MockPaymentSimulator())
+        try { flow.selectStore(flow.stores.stores().first()); fail("real DRIVING must block in MOCK") }
+        catch (_: IllegalStateException) { }
+        real.state = VehicleState.PARKED
+        assertEquals(VehicleState.PARKED, provider.getVehicleState())
+    }
+    @Test fun mockModeIgnoresNonDrivingOrFailingReal() {
+        val real = RealProvider(); val provider = SwitchableVehicleStateProvider(MockVehicleStateProvider(VehicleState.DRIVING), real)
+        assertEquals(VehicleState.DRIVING, provider.getVehicleState())   // Mock may restrict while real is PARKED
+        provider.mock.state = VehicleState.PARKED; real.fail = true
+        assertEquals(VehicleState.PARKED, provider.getVehicleState())    // labelled demo; real failure does not override
     }
     @Test(expected = IllegalStateException::class) fun cannotCycleMockInReal() {
         val provider = SwitchableVehicleStateProvider()

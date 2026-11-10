@@ -17,6 +17,8 @@ local.properties
 # Local caches, build outputs and credentials
 .idea/
 **/build/
+automotive/debug/
+automotive/release/
 .kotlin/
 *.apk
 !apk/*_release.apk

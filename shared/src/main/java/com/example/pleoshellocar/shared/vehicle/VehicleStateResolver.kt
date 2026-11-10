@@ -27,7 +27,7 @@ class VehicleStateResolver(private val freshnessMs: Long = 3_000) {
         if (gear == VehicleGear.P) return if (speedKmh <= 1.0)
             VehicleStateResult(VehicleState.PARKED, "P 기어 · 정차 확인")
         else unknown("기어와 속도 신호 상충")
-        if (gear == VehicleGear.N) return unknown("N 기어 · 정차 확인 불가")
+        if (gear == VehicleGear.N && speedKmh <= 3.0) return unknown("N 기어 · 정차 확인 불가")
         if (gear == VehicleGear.D || gear == VehicleGear.R || speedKmh > 3.0)
             return VehicleStateResult(VehicleState.DRIVING, "주행 기어 또는 속도 감지")
         return unknown("정차 확인 불가")
