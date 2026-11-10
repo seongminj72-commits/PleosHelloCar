@@ -99,3 +99,19 @@ PERF_VEHICLE_SPEED는 공식적으로 후진 시 음수일 수 있다. 이번 �
 - 데모 설정의 Mock 행에 실제 주행 감지로 적용된 상태를 함께 표시한다.
 - 테스트: 기존 `forwardsOnlyActiveSourceEvents`를 새 동작에 맞게 `forwardsRealEventsInBothModesAndMockOnlyInMock`으로 바꾸고 5개를 추가했다. Kotlin 2.0.21 + JUnit 4.13.2로 shared 순수 JVM 소스(CarContext 컴파일 스텁 사용)와 shared 테스트 5개 클래스 실행: 84개 통과.
 - 미실행: Gradle 전체 빌드와 에뮬레이터 확인. 확인할 것은 REAL·D에서 Mock 전환 시 거부 토스트, MOCK·Mock PARKED·콘솔 D에서 매장 선택 차단, 콘솔 P·0에서 Mock 시연 정상.
+
+### A단계 에뮬레이터 검증 (2026-11-10)
+
+대상은 `d84c6b0` debug APK와 Pleos Connect v2.1.0(API 34)이다. `:automotive:assembleDebug` 성공 후 APK를 설치했다.
+
+| 항목 | 결과 |
+|---|---|
+| A1 REAL·D에서 Mock 전환 차단 | 미실행. 정차 상태의 모드 화면 검증 중 크래시가 재현돼 D 시나리오까지 진행하지 못했다. |
+| A2 권한 거부·UNKNOWN 및 재시작 | 부분 확인. 권한 요청 화면에 REAL·UNKNOWN·권한 필요가 표시됐다. 재시작 후 Mock·UNKNOWN 홈을 확인했다. 권한 거부 상태에서 Mock 전환 차단 토스트와 REAL 유지 여부는 크래시로 확인하지 못했다. |
+| A3 Mock PARKED·실제 D | 미실행. 반복 크래시 조사에서 중단했다. |
+| A4 P·0 전환과 Mock 시나리오 1~5 | 미실행. 반복 크래시 조사에서 중단했다. |
+| A5 오류 패턴 0건 | 실패. DriveFlow 프로세스에서 `FATAL EXCEPTION: main` 2건을 확인했다. |
+
+20:33:47과 20:34:11에 앱이 종료됐다. 예외는 `HostException: Remote getTemplate onSuccess call failed`이며, 하위 원인은 호스트의 `OverLimitFlowViolationException: Unsupported template type as the last step in a task. [template: ListTemplate]`이다. P·0에서 설정과 모드 화면을 연속 조작하는 구간에서 재현했다. 호스트가 마지막 단계에 전달된 ListTemplate을 거부한 것은 확인했으며, 어느 화면 갱신이 단계 한도에 도달하게 했는지는 확인하지 못했다. 코드 수정 없이 결과를 기록했다.
+
+화면 증거는 [권한 요청](validation-aaos-vehicle/followup-permission.png), [재시작 Mock 홈](validation-aaos-vehicle/followup-restart-mock.png), [크래시 후 화면](validation-aaos-vehicle/followup-after-crash.png)에 있다.
