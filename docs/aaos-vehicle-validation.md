@@ -81,3 +81,21 @@ PERF_VEHICLE_SPEED는 공식적으로 후진 시 음수일 수 있다. 이번 �
 ## 제출본 복구
 
 기존 `apk/조성민_PleosDriveFlow_release.apk`를 다시 설치했다. SHA-256 `b2537264dc23e58711a883354ecb33793e83b823f16dede132ebb8a86dd13453`는 작업 전과 동일하다. 호스트 P·0, 앱 Mock PARKED 홈 화면으로 복구했으며 저장소의 제출 파일 내용은 변경하지 않았다.
+
+## 후속 수정 — 앱 자체 모드 전환 게이트 (2026-11-10, Claude)
+
+위 검증에서 D·30에도 호스트 정차 전용 행이 눌렸으므로, 호스트 게이트에만 의존하던 "차량 상태 모드" 전환에 앱 자체 확인을 추가했다. 원칙: **Mock은 제한을 더할 수만 있고, 실제 주행 신호를 풀 수 없다.**
+
+| 경우 | 변경 전 | 변경 후 |
+|---|---|---|
+| REAL · DRIVING → Mock 전환 | 허용(호스트 게이트만 의존). Mock이 PARKED면 주행 중 주문 가능 | 거부, 토스트 안내 |
+| REAL · UNKNOWN(신호 끊김·권한 거부) → Mock 전환 | 허용 | 거부. 앱을 재시작하면 기본 Mock 모드로 시작 |
+| REAL · PARKED → Mock 전환 | 허용 | 허용 |
+| 실제 공급자 없음(mobile 등) → Mock 전환 | 허용 | 허용(비교할 실제 신호 없음) |
+| MOCK 모드, Mock PARKED, 실제 신호 DRIVING | PARKED(주문 가능) | DRIVING, 사유 "실제 차량 주행 감지 · Mock 상태 무시" |
+| MOCK 모드, 실제 신호 PARKED/UNKNOWN/실패 | Mock 값 | Mock 값(변경 없음, 시연 유지) |
+
+- MOCK 모드에서도 실제 신호 변경 시 화면을 갱신한다.
+- 데모 설정의 Mock 행에 실제 주행 감지로 적용된 상태를 함께 표시한다.
+- 테스트: 기존 `forwardsOnlyActiveSourceEvents`를 새 동작에 맞게 `forwardsRealEventsInBothModesAndMockOnlyInMock`으로 바꾸고 5개를 추가했다. Kotlin 2.0.21 + JUnit 4.13.2로 shared 순수 JVM 소스(CarContext 컴파일 스텁 사용)와 shared 테스트 5개 클래스 실행: 84개 통과.
+- 미실행: Gradle 전체 빌드와 에뮬레이터 확인. 확인할 것은 REAL·D에서 Mock 전환 시 거부 토스트, MOCK·Mock PARKED·콘솔 D에서 매장 선택 차단, 콘솔 P·0에서 Mock 시연 정상.

@@ -89,7 +89,7 @@ abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowCont
 
     /** Mock 상태 표시 - 실제 차량 신호와 명확히 구분 */
     protected fun mockBadge(): String = when (flow.vehicle.source) {
-        VehicleStateSource.MOCK -> "[데모] Mock 차량 상태: ${flow.vehicle.getVehicleState()} · 실제 차량 신호 아님"
+        VehicleStateSource.MOCK -> "[데모] Mock 차량 상태: ${flow.vehicle.getVehicleState()} · ${flow.vehicle.reason}"
         VehicleStateSource.VEHICLE_SDK -> "실제 차량 신호: ${flow.vehicle.getVehicleState()} (${flow.vehicle.reason})"
     }
 }
@@ -212,7 +212,8 @@ class DemoSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowS
             ?: (flow.navigation as? MockNavigationEtaProvider)
         val payment = flow.payment as? MockPaymentSimulator
         val stateRow = if (flow.vehicle.source == VehicleStateSource.MOCK && mock != null) {
-            row("차량 상태", "${mock.state} · 탭하여 순환 (Mock)", parked = true) {
+            row("차량 상태", "${mock.state} · 탭하여 순환 (Mock)" +
+                (if (flow.vehicle.getVehicleState() != mock.state) " · 실제 주행 감지로 ${flow.vehicle.getVehicleState()} 적용" else ""), parked = true) {
                 if (vehicle != null) vehicle.cycleMockState() else {
                     mock.state = when (mock.state) {
                         VehicleState.UNKNOWN -> VehicleState.PARKED
