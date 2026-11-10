@@ -10,6 +10,8 @@ class SwitchableVehicleStateProvider(
     private val listeners = linkedSetOf<() -> Unit>()
     private var closed = false
     private var subscriptionFailed = false
+    // Declared before init so the initial value set there is not overwritten.
+    private var lastEmitted: Triple<VehicleStateMode, VehicleState, String>? = null
     var mode: VehicleStateMode = VehicleStateMode.MOCK
         private set
     private val mockChanged: () -> Unit = { if (mode == VehicleStateMode.MOCK) notifyChanged() }
@@ -19,6 +21,7 @@ class SwitchableVehicleStateProvider(
     init {
         mock.addListener(mockChanged)
         try { real?.addListener(realChanged) } catch (_: Exception) { subscriptionFailed = true }
+        lastEmitted = snapshot().let { Triple(mode, it.state, it.reason) }
     }
 
     override val source: VehicleStateSource get() =
@@ -71,7 +74,15 @@ class SwitchableVehicleStateProvider(
             VehicleState.DRIVING -> VehicleState.UNKNOWN
         }
     }
-    private fun notifyChanged() { if (!closed) listeners.toList().forEach { it() } }
+    // Forward only visible changes. The AAOS adapter reports every periodic speed sample (about 1 Hz);
+    // re-rendering on each sample is unnecessary and the host throttles refreshes while driving.
+    private fun notifyChanged() {
+        if (closed) return
+        val current = snapshot().let { Triple(mode, it.state, it.reason) }
+        if (current == lastEmitted) return
+        lastEmitted = current
+        listeners.toList().forEach { it() }
+    }
     override fun addListener(listener: () -> Unit) { if (!closed) listeners.add(listener) }
     override fun removeListener(listener: () -> Unit) { listeners.remove(listener) }
     override fun close() {

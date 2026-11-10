@@ -115,3 +115,20 @@ PERF_VEHICLE_SPEED는 공식적으로 후진 시 음수일 수 있다. 이번 �
 20:33:47과 20:34:11에 앱이 종료됐다. 예외는 `HostException: Remote getTemplate onSuccess call failed`이며, 하위 원인은 호스트의 `OverLimitFlowViolationException: Unsupported template type as the last step in a task. [template: ListTemplate]`이다. P·0에서 설정과 모드 화면을 연속 조작하는 구간에서 재현했다. 호스트가 마지막 단계에 전달된 ListTemplate을 거부한 것은 확인했으며, 어느 화면 갱신이 단계 한도에 도달하게 했는지는 확인하지 못했다. 코드 수정 없이 결과를 기록했다.
 
 화면 증거는 [권한 요청](validation-aaos-vehicle/followup-permission.png), [재시작 Mock 홈](validation-aaos-vehicle/followup-restart-mock.png), [크래시 후 화면](validation-aaos-vehicle/followup-after-crash.png)에 있다.
+
+## 크래시 원인과 수정 (2026-11-10, Claude)
+
+원인: 화면을 다시 그릴 때 행 제목이 바뀌었다. Car App Library 규칙상 ListTemplate은 "템플릿 제목이 같고, 행 개수와 각 행의 제목이 같을 때만" 갱신(refresh)으로 인정되고, 그렇지 않으면 새 단계로 센다. 한 태스크는 5단계를 넘을 수 없고 5번째 단계에 List/Grid 템플릿을 둘 수 없으므로, 홈(1) → 서비스 상태(2) → 차량 상태 모드(3)에서 모드를 두 번 바꾸면 제목 "모드: MOCK"/"모드: REAL"이 바뀌어 4·5단계가 되고, 5번째 ListTemplate을 호스트가 거부해 앱이 종료된다(`OverLimitFlowViolationException`). 실제 신호 상태가 바뀌어 서비스 상태 화면의 "실제 신호: PARKED/DRIVING" 제목이 바뀌는 경우도 같다.
+
+- 근거: [ListTemplate 레퍼런스(Template Restrictions)](https://developer.android.com/reference/kotlin/androidx/car/app/model/ListTemplate), [Plan task flows](https://developer.android.com/design/ui/cars/guides/ux-requirements/plan-task-flows)
+- 수정: 다시 그려지는 행의 제목을 고정하고 바뀌는 값은 본문으로 옮겼다.
+
+| 화면 | 변경 전 제목 | 변경 후 제목 (바뀌는 값은 본문) |
+|---|---|---|
+| 서비스 상태 — 차량 상태(실제 모드) | 실제 신호: {상태} | 차량 상태 |
+| 서비스 상태 — 차량 상태 모드 | 차량 상태 모드: Mock/실제 차량 | 차량 상태 모드 |
+| 차량 상태 모드 — 전환 행 | 모드: {MOCK/REAL} | 모드 |
+| ETA 연결 설정 — 전환 행 (v0.3.0부터 있던 같은 문제) | 모드: {MOCK/REAL} | ETA 모드 |
+
+- 추가: `SwitchableVehicleStateProvider`가 (모드, 상태, 사유)가 실제로 바뀔 때만 화면에 알린다. AAOS 어댑터는 속도 샘플(약 1초 간격)마다 알리므로, 정차 중에도 매초 화면을 다시 그리던 동작을 없앴다.
+- 테스트: shared JVM 85개 통과(Kotlin 2.0.21 + JUnit 4.13.2, CarContext 컴파일 스텁). Gradle·에뮬레이터 재검증은 미실행.

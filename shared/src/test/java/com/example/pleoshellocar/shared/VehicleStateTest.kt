@@ -113,12 +113,23 @@ class SwitchableVehicleStateProviderTest {
     @Test fun forwardsRealEventsInBothModesAndMockOnlyInMock() {
         val real = RealProvider(); val provider = SwitchableVehicleStateProvider(real = real)
         var changes = 0; provider.addListener { changes++ }
-        real.changed(); assertEquals(1, changes)   // MOCK reacts to real changes (DRIVING override)
-        provider.cycleMockState(); assertEquals(2, changes)
-        provider.setMode(VehicleStateMode.REAL); assertEquals(3, changes)
-        provider.mock.state = VehicleState.DRIVING; assertEquals(3, changes)
+        real.changed(); assertEquals(0, changes)   // nothing visible changed
+        real.state = VehicleState.DRIVING; real.changed(); assertEquals(1, changes)   // MOCK shows real DRIVING
+        real.state = VehicleState.PARKED; real.changed(); assertEquals(2, changes)
+        provider.cycleMockState(); assertEquals(3, changes)
+        provider.setMode(VehicleStateMode.REAL); assertEquals(4, changes)
+        provider.mock.state = VehicleState.DRIVING; assertEquals(4, changes)
         real.state = VehicleState.DRIVING; real.changed()
-        assertEquals(4, changes); assertEquals(VehicleState.DRIVING, provider.getVehicleState())
+        assertEquals(5, changes); assertEquals(VehicleState.DRIVING, provider.getVehicleState())
+    }
+    @Test fun repeatedIdenticalSamplesDoNotNotify() {
+        val real = RealProvider(); val provider = SwitchableVehicleStateProvider(real = real)
+        provider.setMode(VehicleStateMode.REAL)
+        var changes = 0; provider.addListener { changes++ }
+        repeat(10) { real.changed() }   // e.g. 1 Hz speed samples while parked
+        assertEquals(0, changes)
+        real.fail = true; real.changed(); assertEquals(1, changes)   // expiry/failure becomes visible
+        real.changed(); assertEquals(1, changes)
     }
     @Test fun realDrivingBlocksReturnToMock() {
         val real = RealProvider().apply { state = VehicleState.DRIVING }

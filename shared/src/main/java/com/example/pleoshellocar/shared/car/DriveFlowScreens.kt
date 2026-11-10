@@ -11,7 +11,11 @@ import com.example.pleoshellocar.shared.vehicle.*
 import com.example.pleoshellocar.shared.navigation.*
 import com.example.pleoshellocar.shared.payment.*
 
-/** MVP의 자체 행 수 제한. 호스트별 제약과 카테고리 심사는 별도 검증한다. */
+/**
+ * MVP의 자체 행 수 제한. 호스트별 제약과 카테고리 심사는 별도 검증한다.
+ * invalidate()로 다시 그리는 화면은 템플릿 제목, 행 개수, 각 행 제목을 바꾸지 않는다. 바뀌는 값은 행 본문에만 둔다.
+ * 바꾸면 호스트가 갱신이 아닌 새 단계로 세어 5단계 한도에서 앱이 종료된다(OverLimitFlowViolationException).
+ */
 abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowController) : Screen(context) {
     private val etaChanged: () -> Unit = { invalidate() }
     private val vehicleChanged: () -> Unit = { invalidate() }
@@ -222,12 +226,12 @@ class DemoSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowS
                     }
                 }
             }
-        } else row("실제 신호: ${flow.vehicle.getVehicleState()}", flow.vehicle.reason)
+        } else row("차량 상태", "실제 신호: ${flow.vehicle.getVehicleState()} · ${flow.vehicle.reason}")
 
         val rows = listOf(
             stateRow,
-            if (vehicle != null) row("차량 상태 모드: ${if (vehicle.mode == VehicleStateMode.MOCK) "Mock" else "실제 차량"}",
-                "모드 전환 / 차량 권한 · 실패 시 UNKNOWN", parked = true) {
+            if (vehicle != null) row("차량 상태 모드",
+                "${if (vehicle.mode == VehicleStateMode.MOCK) "Mock" else "실제 차량"} · 모드 전환 / 차량 권한 · 실패 시 UNKNOWN", parked = true) {
                 screenManager.push(VehicleModeScreen(carContext, flow))
             } else row("차량 상태 모드", mockBadge()),
             if (navigation != null) row("Mock ETA 설정", "${navigation.minutes?.let { "$it 분" } ?: "정보 없음"} · 탭하여 변경 (8→10→3→없음)", parked = true) {
@@ -270,7 +274,7 @@ class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowSc
         val navigation = flow.navigation as? TmapNavigationEtaProvider
             ?: return list("ETA 설정", listOf(row("Mock", "실제 연결 공급자가 없습니다.")))
         return list("ETA 연결 설정", listOf(
-            row("모드: ${navigation.mode}", navigation.statusLabel, parked = true) {
+            row("ETA 모드", "${navigation.mode} · ${navigation.statusLabel}", parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle)
                 navigation.setMode(if (navigation.mode == EtaMode.MOCK) EtaMode.REAL else EtaMode.MOCK)
             },
@@ -293,7 +297,7 @@ class VehicleModeScreen(context: CarContext, flow: DriveFlowController) : FlowSc
         val vehicle = flow.vehicle as? SwitchableVehicleStateProvider
             ?: return list("차량 상태 모드", listOf(row("차량 상태", mockBadge())))
         val rows = mutableListOf(
-            row("모드: ${vehicle.mode}", mockBadge(), parked = true) {
+            row("모드", "${if (vehicle.mode == VehicleStateMode.MOCK) "Mock" else "실제 차량"} · 탭하여 전환 · ${mockBadge()}", parked = true) {
                 vehicle.setMode(if (vehicle.mode == VehicleStateMode.MOCK) VehicleStateMode.REAL else VehicleStateMode.MOCK)
             }
         )
