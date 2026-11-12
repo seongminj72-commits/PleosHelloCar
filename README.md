@@ -21,6 +21,9 @@ adb shell am start -n com.example.pleoshellocar/androidx.car.app.activity.CarApp
 
 ### 테스트 환경과 필요 설정
 
+- 에뮬레이터: Pleos Connect v2.1.0 (AVD `Pleos_Connect_v2.1.0`, Android Automotive API 34)
+- 화면 사양: 2560×1440 가로 (`adb shell wm size` 기준). 앱은 계기판 오른쪽의 센터 디스플레이 영역에 표시됩니다.
+
 Pleos_Connect_v2.1.0 AVD(API 34), 호스트 기어 P·0km/h에서 검증했습니다. 추가 설정 없이 Mock 모드로 전체 시연이 가능하며, 결제는 모의 결제로 실제 청구가 없습니다.
 
 Real TMAP ETA는 debug 빌드 + 로컬 프록시 + 운영자 TMAP 키가 필요합니다. 제출용 release APK에서 Real로 바꾸면 "프록시 설정 필요"가 표시되는 것이 의도된 동작입니다. 정확한 위치 권한이 없으면 권한 안내가 먼저 표시됩니다. 자세한 내용은 [릴리스 서명 방법](#릴리스-서명-방법) 아래 설명과 [TMAP 연동 안내](docs/tmap-integration.md)를 참고하세요.
