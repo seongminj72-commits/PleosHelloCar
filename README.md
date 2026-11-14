@@ -26,6 +26,8 @@ adb shell am start -n com.example.pleoshellocar/androidx.car.app.activity.CarApp
 
 Pleos_Connect_v2.1.0 AVD(API 34), 호스트 기어 P·0km/h에서 검증했습니다. 추가 설정 없이 Mock 모드로 전체 시연이 가능하며, 결제는 모의 결제로 실제 청구가 없습니다.
 
+새로 설치한 뒤 처음 실행하면 첫 화면이 뜨기 직전에 Pleos 호스트의 오류 문구가 1초 미만 잠깐 보일 수 있습니다. 앱 크래시가 아니라 호스트 화면 전환 중 나타나는 현상이며, 1~2초 안에 홈 화면이 정상 표시되고 그대로 사용할 수 있습니다. v0.3.1에서도 같은 시점에 재현됩니다. [첫 실행 조사 기록](docs/v0.4.0-release-validation.md#첫-실행-오류-화면-조사)
+
 Real TMAP ETA는 debug 빌드 + 로컬 프록시 + 운영자 TMAP 키가 필요합니다. 제출용 release APK에서 Real로 바꾸면 "프록시 설정 필요"가 표시되는 것이 의도된 동작입니다. 정확한 위치 권한이 없으면 권한 안내가 먼저 표시됩니다. 자세한 내용은 [릴리스 서명 방법](#릴리스-서명-방법) 아래 설명과 [TMAP 연동 안내](docs/tmap-integration.md)를 참고하세요.
 
 ### APK 위치
@@ -35,6 +37,13 @@ Real TMAP ETA는 debug 빌드 + 로컬 프록시 + 운영자 TMAP 키가 필요�
 - SHA-256: `f0faf2afeb610c86a7b6e5c97993157b431e0861ded86ee429b8f8175448496a`
 - 빌드·복사 절차: [apk/README.md](apk/README.md)
 - 파일이 50MB를 넘으면 저장소에 커밋하지 않고 GitHub Releases에 업로드한 뒤, 이 항목을 해당 Release 페이지 URL과 실제 APK의 SHA-256으로 갱신합니다.
+- 같은 APK(SHA-256 동일)를 [v0.4.0 Release](https://github.com/seongminj72-commits/PleosHelloCar/releases/tag/v0.4.0)에도 첨부했습니다.
+
+### 시연 영상
+
+- [시연 영상 다운로드 (driveflow-v040-demo.mp4)](https://github.com/seongminj72-commits/PleosHelloCar/releases/download/v0.4.0/driveflow-v040-demo.mp4) — Pleos Connect v2.1.0 에뮬레이터 화면 녹화
+- 영상과 APK가 함께 있는 페이지: [v0.4.0 Release](https://github.com/seongminj72-commits/PleosHelloCar/releases/tag/v0.4.0)
+- 시연 시나리오: [공모전 데모](docs/contest-demo.md)
 
 Android Automotive OS & Pleos Connect Application Development
 
