@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature
+        android:name="android.hardware.type.automotive"
+        android:required="true" />
+
+    <!-- 공식 가이드의 권한 이름 그대로. 런타임 부여 여부는 프로브가 로그로 남긴다. -->
+    <uses-permission android:name="pleos.car.permission.NAVI_ROUTE" />
+    <uses-permission android:name="pleos.car.permission.NAVI_ROUTE_SEARCH" />
+    <uses-permission android:name="pleos.car.permission.TTS_SERVICE" />
+    <uses-permission android:name="pleos.car.permission.STT_SERVICE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <application
+        android:label="DriveFlow SDK Probe"
+        android:allowBackup="false"
+        android:theme="@android:style/Theme.DeviceDefault">
+        <!-- adb로만 실행한다. 런처 아이콘은 만들지 않는다. -->
+        <activity
+            android:name=".PleosSdkProbeActivity"
+            android:exported="true" />
+    </application>
+
+</manifest>

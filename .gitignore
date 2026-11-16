@@ -35,3 +35,6 @@ automotive/release/
 eta-proxy.json
 __pycache__/
 *.pyc
+
+# Pleos SDK probe logs (local only)
+probe-logs/
