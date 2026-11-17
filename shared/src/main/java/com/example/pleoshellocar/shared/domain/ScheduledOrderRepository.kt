@@ -6,6 +6,7 @@ import com.example.pleoshellocar.shared.data.MockOrderRepository
 class ScheduledOrderRepository(val orders: MockOrderRepository = MockOrderRepository()) {
     var current: ScheduledOrder? = null
         private set
+    var demoEta = DispatchDemoEta.OFF
     private val listeners = linkedSetOf<() -> Unit>()
 
     fun addListener(listener: () -> Unit) { listeners.add(listener) }

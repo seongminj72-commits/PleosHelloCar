@@ -25,7 +25,7 @@ class ScheduledDispatchService : Service() {
         override fun run() {
             val order = app.scheduledOrders.current ?: return
             val now = SystemClock.elapsedRealtime()
-            val eta = when (order.source) {
+            val eta = app.scheduledOrders.demoEta.sample(order.createdAt, now) ?: when (order.source) {
                 EtaSource.NAVIGATION -> app.navigationEta.dispatchEta()
                 EtaSource.MOCK -> order.eta
                 EtaSource.TMAP -> null
@@ -75,6 +75,7 @@ class ScheduledDispatchService : Service() {
         main.removeCallbacks(evaluate)
         app.scheduledOrders.removeListener(reservationChanged)
         app.navigationEta.setDispatchActive(false)
+        app.scheduledOrders.failStart()
         super.onDestroy()
     }
 

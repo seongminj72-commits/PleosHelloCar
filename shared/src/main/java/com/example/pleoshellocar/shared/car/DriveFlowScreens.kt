@@ -237,7 +237,9 @@ class OrderStatusScreen(context: CarContext, flow: DriveFlowController) : FlowSc
                 val minutes = ((scheduled.dispatchAt - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0) + 59_999) / 60_000
                 "예상 전달 약 ${minutes}분 후"
             } else "대기 중인 예약 없음"
-            rows.add(row("예약 상태", "데모 전달 · ${scheduled?.status?.label ?: "예약 없음"} · $whenToSend · $eta"))
+            val demo = flow.scheduledOrders.demoEta.takeUnless { it == DispatchDemoEta.OFF }
+                ?.let { " · 시연 ETA" }.orEmpty()
+            rows.add(row("예약 상태", "데모 전달 · ${scheduled?.status?.label ?: "예약 없음"} · $whenToSend · $eta$demo"))
         }
         return list("내 주문 현황", rows)
     }
@@ -308,7 +310,7 @@ class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowSc
     override fun onGetTemplate(): Template {
         val navigation = flow.navigation as? SelectableNavigationEtaProvider
             ?: return list("ETA 설정", listOf(row("Mock", "실제 연결 공급자가 없습니다.")))
-        return list("ETA 연결 설정", listOf(
+        val rows = mutableListOf(
             row("ETA 모드", "${navigation.source.label} · ${navigation.statusLabel}", parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle)
                 val sources = if (navigation.hasNavigation) EtaSource.entries else listOf(EtaSource.MOCK, EtaSource.TMAP)
@@ -324,7 +326,14 @@ class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowSc
                 InteractionPolicy.requireParked(flow.vehicle); navigation.refreshTmap()
             },
             row("연동 범위", "TMAP은 가상 매장 경로를 계산합니다. 내비 ETA는 선택한 가상 매장과 일치하는 경로만 사용합니다.")
-        ))
+        )
+        flow.scheduledOrders?.let { scheduled ->
+            rows.add(row("예약 전달 시연", "데모 ETA · 매장 통신 설정", parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
+                screenManager.push(DispatchDemoScreen(carContext, flow, scheduled))
+            })
+        }
+        return list("ETA 연결 설정", rows)
     }
 }
 
@@ -345,4 +354,23 @@ class VehicleModeScreen(context: CarContext, flow: DriveFlowController) : FlowSc
         )
         return list("차량 상태 모드", rows)
     }
+}
+
+class DispatchDemoScreen(
+    context: CarContext,
+    flow: DriveFlowController,
+    private val scheduled: ScheduledOrderRepository
+) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template = list("예약 전달 시연", listOf(
+        row("데모 ETA", scheduled.demoEta.label, parked = true) {
+            InteractionPolicy.requireParked(flow.vehicle)
+            check(!flow.reservationActive) { "예약이 종료된 뒤 데모 ETA를 변경하세요." }
+            val modes = DispatchDemoEta.entries
+            scheduled.demoEta = modes[(scheduled.demoEta.ordinal + 1) % modes.size]
+        },
+        row("매장 통신 단절", if (scheduled.orders.dispatchOffline) "단절 · 탭하여 복구" else "정상 · 탭하여 단절", parked = true) {
+            InteractionPolicy.requireParked(flow.vehicle)
+            scheduled.orders.dispatchOffline = !scheduled.orders.dispatchOffline
+        }
+    ))
 }

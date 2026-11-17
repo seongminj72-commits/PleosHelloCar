@@ -76,6 +76,15 @@ class ScheduledDispatchTest {
         assertEquals(DispatchStatus.SENT, state.current?.status)
     }
 
+    @Test fun demoChangesEtaAtTwentyFiveSecondsAndKeepsExactDeadline() {
+        assertEquals(30, DispatchDemoEta.DROP.sample(1_000, 25_999)?.minutes)
+        assertEquals(5, DispatchDemoEta.DROP.sample(1_000, 26_000)?.minutes)
+        assertEquals(10, DispatchDemoEta.RISE.sample(1_000, 25_999)?.minutes)
+        assertEquals(30, DispatchDemoEta.RISE.sample(1_000, 26_000)?.minutes)
+        assertEquals(26_000L, DispatchDemoEta.DEADLINE.sample(1_000, 1_000)?.arrivalAt)
+        assertNull(DispatchDemoEta.OFF.sample(1_000, 26_000))
+    }
+
     @Test fun cancelledReservationNeverDispatches() {
         val state = ScheduledOrderRepository()
         val order = reservation(DispatchEta(5, 0))
