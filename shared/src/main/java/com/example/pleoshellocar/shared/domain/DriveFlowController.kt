@@ -46,6 +46,11 @@ class DriveFlowController(
         ?: PreparationEstimate.of(selectedStore?.preparationMinutes ?: 6, lines())
     fun recommendation() = OrderTimingCalculator().recommend(navigation.getEstimatedArrivalMinutes(),
         preparationEstimate().totalMinutes, possibleDelay = possibleDelay)
+    fun recommendationText(): String {
+        if (lines().isEmpty()) return "메뉴를 선택하면 주문 시점을 추천합니다"
+        val recommendation = recommendation()
+        return "${recommendation.label} · ${recommendation.reason}"
+    }
     fun checkout(): Order {
         InteractionPolicy.requireParked(vehicle)
         val store = requireNotNull(selectedStore) { "매장을 선택하세요." }

@@ -137,8 +137,7 @@ class MenuScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(co
                 flow.setQuantity(item, (qty + 1) % 4)
             }
         }
-        val recommendation = flow.recommendation()
-        val recRow = row("주문 추천", "${flow.navigation.statusLabel} · ${recommendation.label} · ${recommendation.reason}", parked = false)
+        val recRow = row("주문 추천", "${flow.navigation.statusLabel} · ${flow.recommendationText()}", parked = false)
         val total = "${formatWon(flow.totalWon())}원"
         val navigation = flow.navigation as? SelectableNavigationEtaProvider
         val totalRow = if (navigation?.source == EtaSource.NAVIGATION && flow.selectedStore?.routeTestPoint != null) {
@@ -178,13 +177,12 @@ class StoreRouteScreen(
 
 class ConfirmationScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
     override fun onGetTemplate(): Template {
-        val recommendation = flow.recommendation()
         val orderSummary = flow.lines().joinToString(", ") { "${it.item.name} ${it.quantity}개" }
         val totalWon = formatWon(flow.totalWon())
 
         val rows = listOf(
             row(flow.selectedStore!!.name, "${totalWon}원 · $orderSummary"),
-            row("주문 추천", "${flow.navigation.statusLabel} · ${recommendation.label} · ${recommendation.reason}"),
+            row("주문 추천", "${flow.navigation.statusLabel} · ${flow.recommendationText()}"),
             row("결제 안내", "데모 결제 — 실제 청구 없음 [${mockBadge()}]"),
             row("차량 상태", mockBadge())
         )
