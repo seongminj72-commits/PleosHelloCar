@@ -82,3 +82,17 @@ Virtual Console에서 P·0 → D·ACCEL로 속도를 만들었다. 콘솔 계기
 | 알림 권한 거부 뒤에도 예약 전달 동작 | 미실행 — 현재 사용자 권한은 허용 상태, 코드 변경 전 설치본 |
 
 알림은 보조 수단이다. 앱은 알림 권한을 전달 조건으로 사용하지 않는다. 수정본 서명 설치 이후 권한 거부 행과 실제 전달 동작을 함께 확인한다.
+
+## 도착 시각 보정본 서명 APK 확인 (2026-11-17)
+
+사용자가 서명한 이번 APK를 재빌드하지 않고 설치했다. `apksigner verify --verbose`에서 v2 서명 검증이 통과했고 `adb install -r` 및 첫 홈 화면 진입도 성공했다. Mock 상태를 PARKED로 전환할 수 있었고, 설정에서 Mock ETA 값을 8분에서 10분/3분으로 바꾸는 화면 갱신을 확인했다.
+
+| 항목 | 결과 |
+|---|---|
+| 자동 전달 예약 시작 | 미완료. 예약 확인 화면에서 전달 버튼을 눌렀을 때 `최신 도착 예상시간을 확인하세요.` 안내가 표시됐다. 예약 검증에 사용 가능한 최신 ETA가 없어서 예약은 생성되지 않음 |
+| Virtual Console 주행 입력 | 미실행. `http://127.0.0.1:8088/vehicle/state`에서 `bridge_ready=false`, `emulator_active=false`, `dds_ready.all=false`, Park·0km/h를 확인. D·속도 > 0을 만들 수 없어 주행 시나리오를 중단 |
+| ETA 급증(RISE), 통신 단절→복구, 계속 단절→마감 실패 | 미실행 — 먼저 유효한 ETA와 예약이 필요하고, 실제 주행 조건도 준비되지 않음 |
+| 주행 중 예약 취소 및 Mock 예약 자동 전달 | 미실행 — 예약 생성 및 주행 상태 미충족 |
+| 실행 오류 패턴 | `logcat` 수집 구간에서 `FATAL`, `IllegalAccess`, `ClassNotFound`, `NoSuchMethod`, `NoClassDefFound`, `VerifyError`, `AbstractMethodError`, `OverLimitFlowViolation` 0건 |
+
+이 회차에서는 서명 및 앱 시작만 확인했다. 위 수동 시나리오를 통과한 것으로 간주하지 않는다. Virtual Console DDS 입력이 다시 준비되고 최신 ETA가 생성되는 조건에서 재시험해야 한다.
