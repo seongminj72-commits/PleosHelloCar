@@ -12,19 +12,26 @@ import androidx.lifecycle.LifecycleOwner
 import com.example.pleoshellocar.shared.car.HomeScreen
 import com.example.pleoshellocar.shared.domain.DriveFlowController
 import com.example.pleoshellocar.shared.vehicle.SwitchableVehicleStateProvider
+import com.example.pleoshellocar.shared.vehicle.VehicleSignalFactory
 import com.example.pleoshellocar.shared.navigation.*
 import com.example.pleoshellocar.shared.payment.MockPaymentSimulator
 
-class MyCarAppSession(private val vehicleFactory: com.example.pleoshellocar.shared.vehicle.VehicleSignalFactory? = null) : Session() {
+class MyCarAppSession(
+    private val vehicleFactory: VehicleSignalFactory? = null,
+    private val navigationFactory: NavigationEtaFactory? = null
+) : Session() {
     override fun onCreateScreen(intent: Intent): Screen {
         val request = AndroidEtaRequest(carContext)
-        val navigation = TmapNavigationEtaProvider(request, SystemClock::elapsedRealtime)
+        val navigation = SelectableNavigationEtaProvider(
+            TmapNavigationEtaProvider(request, SystemClock::elapsedRealtime),
+            navigationFactory?.createNavigationEta(carContext)
+        )
         val real = vehicleFactory?.createVehicleSignal(carContext)
         val vehicle = SwitchableVehicleStateProvider(real = real)
         val flow = DriveFlowController(vehicle, navigation, MockPaymentSimulator())
         val handler = Handler(Looper.getMainLooper())
         val tick = object : Runnable {
-            override fun run() { navigation.refresh(); handler.postDelayed(this, 5_000) }
+            override fun run() { navigation.refreshTmap(); handler.postDelayed(this, 5_000) }
         }
         navigation.addListener { Log.i("DriveFlowETA", navigation.statusLabel) }
         lifecycle.addObserver(object : DefaultLifecycleObserver {

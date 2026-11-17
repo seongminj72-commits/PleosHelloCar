@@ -57,6 +57,7 @@ android {
 
 dependencies {
     implementation(project(":shared"))
+    implementation("ai.pleos.playground:NaviHelper:3.0.5")
     implementation(libs.androidx.app.automotive)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
