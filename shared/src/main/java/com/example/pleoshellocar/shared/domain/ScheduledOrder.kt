@@ -36,12 +36,18 @@ data class ScheduledOrder(
 
 internal enum class DispatchDecision { WAIT, HOLD, SEND, FAIL }
 
-internal fun decideDispatch(order: ScheduledOrder, now: Long, safetyMinutes: Int = 1): DispatchDecision = when {
+internal fun remainingArrivalMinutes(order: ScheduledOrder, now: Long): Int =
+    ((order.arrivalAt - now).coerceAtLeast(0L) + 59_999L).div(60_000L).toInt()
+
+internal fun latePreparationMinutes(order: ScheduledOrder, now: Long): Int =
+    (order.preparation.totalMinutes - remainingArrivalMinutes(order, now)).coerceAtLeast(0)
+
+internal fun decideDispatch(order: ScheduledOrder, now: Long): DispatchDecision = when {
     order.status.terminal -> DispatchDecision.WAIT
     now >= minOf(order.arrivalAt, order.serviceDeadline) -> DispatchDecision.FAIL
-    order.eta?.fresh(now) != true -> DispatchDecision.HOLD
+    order.source == EtaSource.NAVIGATION && order.eta?.fresh(now) != true -> DispatchDecision.HOLD
     now < order.nextAttemptAt -> DispatchDecision.WAIT
-    order.eta.minutes - order.preparation.totalMinutes <= safetyMinutes -> DispatchDecision.SEND
+    now >= order.dispatchAt -> DispatchDecision.SEND
     else -> DispatchDecision.WAIT
 }
 

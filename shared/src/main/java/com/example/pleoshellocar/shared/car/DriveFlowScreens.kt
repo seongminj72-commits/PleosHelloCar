@@ -232,7 +232,11 @@ class OrderStatusScreen(context: CarContext, flow: DriveFlowController) : FlowSc
         )
 
         if (flow.scheduledOrders != null) {
-            val eta = scheduled?.eta?.let { "최근 ETA ${it.minutes}분" } ?: "최근 ETA 없음"
+            val eta = scheduled?.let { order ->
+                val remaining = remainingArrivalMinutes(order, android.os.SystemClock.elapsedRealtime())
+                if (order.source == EtaSource.MOCK) "Mock ETA 기준 · 도착까지 약 ${remaining}분"
+                else if (order.eta != null) "최근 ETA 기준 도착까지 약 ${remaining}분" else "최근 ETA 없음"
+            } ?: "최근 ETA 없음"
             val whenToSend = if (scheduled?.status?.terminal == false) {
                 val minutes = ((scheduled.dispatchAt - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0) + 59_999) / 60_000
                 "예상 전달 약 ${minutes}분 후"
@@ -327,6 +331,14 @@ class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowSc
             },
             row("연동 범위", "TMAP은 가상 매장 경로를 계산합니다. 내비 ETA는 선택한 가상 매장과 일치하는 경로만 사용합니다.")
         )
+        val notificationPermission = android.Manifest.permission.POST_NOTIFICATIONS
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            carContext.checkSelfPermission(notificationPermission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            rows.add(2, row("알림 권한 허용", "보조 알림용 · 거부해도 예약 전달은 계속됩니다", parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
+                carContext.requestPermissions(listOf(notificationPermission)) { _, _ -> invalidate() }
+            })
+        }
         flow.scheduledOrders?.let { scheduled ->
             rows.add(row("예약 전달 시연", "데모 ETA · 매장 통신 설정", parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle)

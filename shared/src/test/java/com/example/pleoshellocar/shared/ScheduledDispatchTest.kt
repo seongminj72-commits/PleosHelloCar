@@ -10,14 +10,46 @@ class ScheduledDispatchTest {
     private val store = MockStoreRepository().stores().first()
     private val preparation = PreparationEstimate(6, 0, 0)
 
-    private fun reservation(eta: DispatchEta) = ScheduledOrder(
+    private fun reservation(
+        eta: DispatchEta,
+        source: EtaSource = EtaSource.NAVIGATION,
+        preparation: PreparationEstimate = this.preparation
+    ) = ScheduledOrder(
         "request", store, listOf(OrderLine(store.menu.first(), 1)), preparation,
-        EtaSource.NAVIGATION, eta.receivedAt, eta.arrivalAt, eta
+        source, eta.receivedAt, eta.arrivalAt, eta
     )
 
     @Test fun sendsAtExactSafetyMargin() {
         assertEquals(DispatchDecision.SEND, decideDispatch(reservation(DispatchEta(7, 0)), 0))
         assertEquals(DispatchDecision.WAIT, decideDispatch(reservation(DispatchEta(8, 0)), 0))
+    }
+
+    @Test fun mockEtaDispatchesAtAbsoluteArrivalDeadline() {
+        val order = reservation(DispatchEta(8, 0), EtaSource.MOCK)
+        assertEquals(60_000L, order.dispatchAt)
+        assertEquals(DispatchDecision.WAIT, decideDispatch(order, 59_999))
+        assertEquals(DispatchDecision.SEND, decideDispatch(order, 60_000))
+        val state = ScheduledOrderRepository()
+        state.reserve(order)
+        state.tick(60_000, order.eta) {}
+        assertEquals(DispatchStatus.SENT, state.current?.status)
+    }
+
+    @Test fun mockDoesNotHoldOnAStaleSampleButNavigationDoes() {
+        val eta = DispatchEta(8, 0)
+        val mock = reservation(eta, EtaSource.MOCK, PreparationEstimate(0, 0, 0))
+        val navigation = reservation(eta, EtaSource.NAVIGATION, PreparationEstimate(0, 0, 0))
+        assertEquals(DispatchDecision.WAIT, decideDispatch(mock, 180_001))
+        assertEquals(DispatchDecision.HOLD, decideDispatch(navigation, 180_000))
+    }
+
+    @Test fun delayUsesCeilingOfRemainingArrivalTime() {
+        val eta = DispatchEta(8, 0)
+        val order = reservation(eta)
+        assertEquals(6, remainingArrivalMinutes(order, order.arrivalAt - 300_001))
+        assertEquals(5, remainingArrivalMinutes(order, order.arrivalAt - 300_000))
+        assertEquals(1, latePreparationMinutes(order, order.arrivalAt - 300_000))
+        assertEquals(2, latePreparationMinutes(order, order.arrivalAt - 240_000))
     }
 
     @Test fun etaIncreaseDelaysAndDecreaseDispatchesWithLateWarning() {
@@ -33,7 +65,7 @@ class ScheduledDispatchTest {
 
     @Test fun staleEtaBoundaryAndSingleHoldNotice() {
         val order = reservation(DispatchEta(8, 0))
-        assertEquals(DispatchDecision.WAIT, decideDispatch(order, 179_999))
+        assertEquals(DispatchDecision.SEND, decideDispatch(order, 179_999))
         assertEquals(DispatchDecision.HOLD, decideDispatch(order, 180_000))
         val state = ScheduledOrderRepository()
         state.reserve(order)

@@ -1,6 +1,7 @@
 package com.example.pleoshellocar.shared.domain
 
 import com.example.pleoshellocar.shared.data.MockOrderRepository
+import com.example.pleoshellocar.shared.navigation.EtaSource
 
 /** Process-memory demo state, used on the main thread by the service and screens. */
 class ScheduledOrderRepository(val orders: MockOrderRepository = MockOrderRepository()) {
@@ -37,11 +38,14 @@ class ScheduledOrderRepository(val orders: MockOrderRepository = MockOrderReposi
     fun tick(now: Long, sample: DispatchEta?, announce: (String) -> Unit) {
         var order = current?.takeUnless { it.status.terminal } ?: return
         // A later sample can extend the estimate only if it was received before the old deadline.
-        if (sample != null && sample != order.eta && sample.fresh(now) &&
+        if (sample != null && sample != order.eta &&
+            (order.source != EtaSource.NAVIGATION || sample.fresh(now)) &&
             sample.receivedAt < order.arrivalAt && now < minOf(order.arrivalAt, order.serviceDeadline)) {
             order = order.copy(eta = sample, arrivalAt = sample.arrivalAt)
         }
-        if (sample == null) order = order.copy(eta = null)
+        if (sample == null && order.source == EtaSource.NAVIGATION) {
+            order = order.copy(eta = null)
+        }
         if (order.eta?.fresh(now) == true && order.message.startsWith("예상시간을 확인할 수 없어")) {
             order = order.copy(message = "데모 전달 대기 중")
         }
@@ -66,7 +70,7 @@ class ScheduledOrderRepository(val orders: MockOrderRepository = MockOrderReposi
                         nextAttemptAt = now + delay, message = "데모 전달 재시도 대기"))
                     return
                 }
-                val late = order.preparation.totalMinutes - checkNotNull(order.eta).minutes
+                val late = latePreparationMinutes(order, now)
                 finish(order, DispatchStatus.SENT,
                     if (late > 0) "데모 전달 완료. 약 ${late}분 늦게 준비될 수 있습니다" else "데모 전달 완료", announce)
             }

@@ -48,3 +48,37 @@
 이 시험으로 서비스가 백그라운드에 있는 동안 전달 음성의 SDK 완료 콜백까지 처리되는 것을 확인했다. 에뮬레이터의 실제 소리 청취 여부는 별도 확인하지 않았다. ETA 급증, 통신 단절·복구·마감 실패, 주행 중 취소 역시 아직 미실행이다.
 
 빌드/설치 확인: 수정본은 서명 환경에서 release APK로 생성됐고 `apksigner verify` v2 및 `adb install -r`가 통과했다. `./gradlew test` 결과 XML 합계는 104개(실패 0, 오류 0). 최종 화면은 콘솔 P·0, 앱 Mock/PARKED 홈이며 [최종 상태 화면](validation-scheduled-dispatch/06-final-mock-parked-home.png)으로 남겼다.
+
+## 도착 시각 기준 전달 보정 및 Virtual Console 재연결 (2026-11-17)
+
+### 코드와 자동화 검증
+
+- 전달 판단은 수신 당시 ETA 값의 분(minute) 차이가 아니라 `arrivalAt`, `dispatchAt`, 현재 단조 시각을 사용한다. ETA 8분·준비 6분이면 예약 후 1분(준비 6분 + 여유 1분)에 전송 가능한 상태가 된다.
+- 3분 신선도 만료는 NAVIGATION ETA에만 적용한다. MOCK 예약은 예약한 도착 시각을 기준으로 시간이 흐르며, DROP/RISE/DEADLINE 시연 샘플이 들어오면 도착 시각을 갱신한다.
+- 주문 상태에는 `Mock ETA 기준`과 현재 시점 기준 도착까지 남은 분을 표시한다. 늦음 분수는 도착까지 남은 시간을 올림 계산한 뒤 준비 시간과 비교한다.
+- 알림 권한이 없으면 ETA 설정의 정차 전용 `알림 권한 허용` 행으로 요청한다. 거부해도 주문 전달 판단은 권한을 검사하지 않는다.
+- `./gradlew test`: JUnit XML 107개, 실패 0, 오류 0. `:automotive:assembleRelease`: 성공. 이 변경 후 산출물은 미서명이다.
+
+### Virtual Console 환경 재확인 (수정 전 서명 APK)
+
+Pleos_Connect_v2.1.0을 `-no-snapshot`으로 cold boot한 뒤 콘솔 브라우저를 다시 열고 ADB 포트 8088을 forward했다. 페이지에 `DDS ONLINE`이 표시됐으며, API `/vehicle/state`에서도 `bridge_ready=true`, `emulator_active=true`, `dds_ready.all=true`로 확인했다.
+
+Virtual Console에서 P·0 → D·ACCEL로 속도를 만들었다. 콘솔 계기에는 56km/h, 앱이 받은 시점의 AAOS 화면에는 D·34km/h가 표시됐고, DriveFlow의 실제 차량 모드는 `DRIVING (AAOS 차량 API · 주행 기어 또는 속도 감지)`였다. Coffee A 선택 탭에서 정차 필요 안내와 주문 조작 차단을 확인했다. 화면은 [D·34km/h에서 차단](validation-scheduled-dispatch/07-virtual-console-d34-order-blocked.png)에 있다. 이 환경 시험은 앞선 서명본 `f1c8595` 설치에서 수행했고, 전달 로직 변경본 검증으로 간주하지 않는다.
+
+시험을 마친 뒤 Virtual Console과 앱을 P·0으로 되돌렸다. API 응답은 Park·0km/h, DDS 전체 준비 상태 true였다.
+
+### 수정 release APK에서 남은 수동 시험
+
+아래 항목은 새 코드가 포함된 서명 release APK 설치 후 실행한다. 기존 서명본의 결과를 대신 쓰지 않는다.
+
+| 항목 | 상태 |
+|---|---|
+| D·속도 > 0 + Navigation 전면 자동 전달 및 음성 안내 | 미실행 — 현재 코드 변경본의 서명 APK 대기 |
+| RISE ETA 변경 후 전달 시점 재계산 | 미실행 — 동일 |
+| 통신 단절→복구 후 1회만 전달 | 미실행 — 동일 |
+| 단절 유지→마감 실패 | 미실행 — 동일 |
+| 주행 중 예약 취소 | 미실행 — 동일 |
+| Mock 모드 예약 자동 전달, 화면의 Mock ETA 기준 표시 | 미실행 — 동일 |
+| 알림 권한 거부 뒤에도 예약 전달 동작 | 미실행 — 현재 사용자 권한은 허용 상태, 코드 변경 전 설치본 |
+
+알림은 보조 수단이다. 앱은 알림 권한을 전달 조건으로 사용하지 않는다. 수정본 서명 설치 이후 권한 거부 행과 실제 전달 동작을 함께 확인한다.
