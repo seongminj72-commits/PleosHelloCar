@@ -3,6 +3,10 @@ package com.example.pleoshellocar.shared
 import com.example.pleoshellocar.shared.data.MockStoreRepository
 import com.example.pleoshellocar.shared.domain.*
 import com.example.pleoshellocar.shared.navigation.EtaSource
+import com.example.pleoshellocar.shared.navigation.MockNavigationEtaProvider
+import com.example.pleoshellocar.shared.payment.MockPaymentSimulator
+import com.example.pleoshellocar.shared.vehicle.MockVehicleStateProvider
+import com.example.pleoshellocar.shared.vehicle.VehicleState
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -22,6 +26,32 @@ class ScheduledDispatchTest {
     @Test fun sendsAtExactSafetyMargin() {
         assertEquals(DispatchDecision.SEND, decideDispatch(reservation(DispatchEta(7, 0)), 0))
         assertEquals(DispatchDecision.WAIT, decideDispatch(reservation(DispatchEta(8, 0)), 0))
+    }
+
+    @Test fun mockReservationUsesTheSameClockReadingForEtaReceipt() {
+        var elapsed = 10_000L
+        val repository = ScheduledOrderRepository()
+        val flow = DriveFlowController(
+            vehicle = MockVehicleStateProvider(VehicleState.PARKED),
+            navigation = MockNavigationEtaProvider(),
+            payment = MockPaymentSimulator(),
+            scheduledOrders = repository,
+            dispatchEta = { now -> DispatchEta(8, now) },
+            clock = { ++elapsed }
+        )
+        flow.selectStore(store)
+        flow.setQuantity(store.menu.first(), 1)
+
+        flow.reserveDispatch()
+
+        val reserved = requireNotNull(repository.current)
+        assertEquals(reserved.createdAt, reserved.eta?.receivedAt)
+        assertTrue(reserved.eta!!.fresh(reserved.createdAt))
+    }
+
+    @Test fun freshnessAllowsAtMostOneSecondOfFutureClockSkew() {
+        assertTrue(DispatchEta(8, receivedAt = 10_500L).fresh(now = 10_000L))
+        assertFalse(DispatchEta(8, receivedAt = 12_000L).fresh(now = 10_000L))
     }
 
     @Test fun mockEtaDispatchesAtAbsoluteArrivalDeadline() {

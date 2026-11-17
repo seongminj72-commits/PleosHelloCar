@@ -11,7 +11,7 @@ enum class DispatchStatus(val label: String) {
 data class DispatchEta(val minutes: Int, val receivedAt: Long, val remainingSeconds: Long = minutes * 60L) {
     init { require(minutes >= 0 && remainingSeconds >= 0) }
     val arrivalAt get() = receivedAt + remainingSeconds * 1_000L
-    fun fresh(now: Long) = now - receivedAt in 0 until 180_000L
+    fun fresh(now: Long) = now - receivedAt in -1_000L until 180_000L
 }
 
 data class ScheduledOrder(

@@ -82,7 +82,7 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
         updateConnection()
     }
 
-    fun dispatchEta(): DispatchEta? = dispatchReading?.let {
+    fun dispatchEta(@Suppress("UNUSED_PARAMETER") now: Long): DispatchEta? = dispatchReading?.let {
         etaMinutes(it.seconds)?.let { minutes -> DispatchEta(minutes, it.receivedAt, it.seconds.toLong()) }
     }
 

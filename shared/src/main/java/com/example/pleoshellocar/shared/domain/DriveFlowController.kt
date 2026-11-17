@@ -13,7 +13,7 @@ class DriveFlowController(
     val orders: OrderRepository = MockOrderRepository(),
     val stores: StoreRepository = MockStoreRepository(),
     val scheduledOrders: ScheduledOrderRepository? = null,
-    private val dispatchEta: () -> DispatchEta? = { null },
+    private val dispatchEta: (now: Long) -> DispatchEta? = { null },
     private val clock: () -> Long = { 0L },
     private val startDispatch: () -> Unit = {}
 ) {
@@ -68,7 +68,7 @@ class DriveFlowController(
         val source = (navigation as? SelectableNavigationEtaProvider)?.source ?: EtaSource.MOCK
         check(source != EtaSource.TMAP) { "자동 전달은 내비 또는 Mock ETA를 선택하세요." }
         val now = clock()
-        val eta = checkNotNull((repository.demoEta.sample(now, now) ?: dispatchEta())?.takeIf { it.fresh(now) && it.arrivalAt > now }) { "최신 도착 예상시간을 확인하세요." }
+        val eta = checkNotNull((repository.demoEta.sample(now, now) ?: dispatchEta(now))?.takeIf { it.fresh(now) && it.arrivalAt > now }) { "최신 도착 예상시간을 확인하세요." }
         val store = checkNotNull(selectedStore) { "매장을 선택하세요." }
         val items = lines()
         check(items.isNotEmpty()) { "메뉴를 선택하세요." }

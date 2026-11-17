@@ -17,7 +17,7 @@ class VehicleApplication : Application(), VehicleSignalFactory, NavigationEtaFac
     override val scheduledOrders = ScheduledOrderRepository()
 
     override fun createNavigationEta(context: CarContext) = navigationEta
-    override fun currentNavigationEta() = navigationEta.dispatchEta()
+    override fun currentNavigationEta(now: Long) = navigationEta.dispatchEta(now)
 
     override fun startScheduledDispatch() {
         ContextCompat.startForegroundService(this, Intent(this, ScheduledDispatchService::class.java))

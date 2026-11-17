@@ -35,10 +35,10 @@ class MyCarAppSession(
         val flow = DriveFlowController(vehicle, navigation, MockPaymentSimulator(),
             orders = scheduled?.orders ?: MockOrderRepository(),
             scheduledOrders = scheduled,
-            dispatchEta = {
+            dispatchEta = { now ->
                 when (navigation.source) {
-                    EtaSource.NAVIGATION -> navigationFactory?.currentNavigationEta()
-                    EtaSource.MOCK -> navigation.mock.minutes?.let { DispatchEta(it, SystemClock.elapsedRealtime()) }
+                    EtaSource.NAVIGATION -> navigationFactory?.currentNavigationEta(now)
+                    EtaSource.MOCK -> navigation.mock.minutes?.let { DispatchEta(it, now) }
                     EtaSource.TMAP -> null
                 }
             },

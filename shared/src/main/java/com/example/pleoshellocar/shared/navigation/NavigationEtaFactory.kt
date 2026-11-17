@@ -7,7 +7,7 @@ import com.example.pleoshellocar.shared.domain.ScheduledOrderRepository
 interface NavigationEtaFactory {
     val scheduledOrders: ScheduledOrderRepository? get() = null
     fun startScheduledDispatch() {}
-    fun currentNavigationEta(): DispatchEta? = null
+    fun currentNavigationEta(now: Long): DispatchEta? = null
     fun createNavigationEta(context: CarContext): LifecycleNavigationEtaProvider
 }
 

@@ -26,7 +26,7 @@ class ScheduledDispatchService : Service() {
             val order = app.scheduledOrders.current ?: return
             val now = SystemClock.elapsedRealtime()
             val eta = app.scheduledOrders.demoEta.sample(order.createdAt, now) ?: when (order.source) {
-                EtaSource.NAVIGATION -> app.navigationEta.dispatchEta()
+                EtaSource.NAVIGATION -> app.navigationEta.dispatchEta(now)
                 EtaSource.MOCK -> order.eta
                 EtaSource.TMAP -> null
             }
