@@ -15,7 +15,7 @@ import com.example.pleoshellocar.shared.navigation.GeoPoint
 import com.example.pleoshellocar.shared.navigation.LifecycleNavigationEtaProvider
 
 /** Reads the Navigation app's active destination. State is confined to the main thread. */
-class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
+class NaviHelperEtaProvider(context: Context, private val probeOwner: String = "session") : LifecycleNavigationEtaProvider {
     private val appContext = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
     private val listeners = linkedSetOf<() -> Unit>()
@@ -125,7 +125,7 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
                         destinationInfo.remainTime < 0 -> update("ETA 정보 없음")
                         else -> {
                             finishRouteRequest()
-                            android.util.Log.i("DispatchProbe", "matched destination ETA callback seconds=${destinationInfo.remainTime}")
+                            android.util.Log.i("DispatchProbe", "owner=$probeOwner matched destination ETA callback seconds=${destinationInfo.remainTime}")
                             update("경로 안내 중", Reading(destinationInfo.remainTime, SystemClock.elapsedRealtime()))
                         }
                     }
@@ -169,6 +169,7 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
             routePending = true
             update("매장 경로 요청 중")
             main.postDelayed(routeTimeout, 30_000)
+            DispatchProbeService.start(appContext, target.name, target.point)
             try {
                 helper.requestRoute(RouteInfo(
                     latitude = target.point.latitude,

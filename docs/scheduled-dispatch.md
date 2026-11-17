@@ -33,3 +33,11 @@
 | CarToast | 15:17:49.135 요청. NotificationService가 `Suppressing toast from package com.android.car.templates.host by user request.`로 남겼고 녹화에 표시되지 않았다. |
 
 `./gradlew test` 및 `:automotive:assembleRelease`가 성공했다. D·속도 > 0 시험은 이 단계에서 실행하지 않았다.
+
+### B. Foreground Service 재시험 준비
+
+A가 10분 기준을 충족하지 못해 Automotive에 12분 한도의 검증 서비스만 추가했다. 정차 상태의 사용자 안내 시작 탭에서 명시적으로 시작한다. 서비스는 별도 NaviHelper를 소유하고 콜백에 `owner=service`를 기록한다. 서비스 종료 시 연결을 해제하며 자동 재시작하지 않는다.
+
+이 실험은 별도 위치 센서 접근이나 데이터 동기화 없이 사용자가 시작한 내비 경로의 남은 시간만 읽으므로 API 34의 `specialUse` 유형을 시험한다. `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`와 사용 목적을 선언하고 `startForeground`에 낮은 중요도의 진행 알림을 넘긴다. 사용자가 화면을 떠나기 전 명시적 조작으로 서비스를 시작한다. 이 구성의 Pleos 배포 적격성은 확인되지 않았다. [Android Foreground Service 유형](https://developer.android.com/develop/background-work/services/fgs/service-types) · [Android 시작 제한](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)
+
+새 서명 release에서 서비스 시작, Session 파괴 후 ETA 지속, Navigation 전면 10분 유지, Foreground Service 알림 게시는 미실행이다. A에서 시험한 일회성 안내의 운전자 화면 표시도 미확인 상태다. `./gradlew test :automotive:assembleRelease` 성공.
