@@ -68,6 +68,8 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
         private val helper = NaviHelper(appContext)
         private var connected = false
         private var guiding = false
+        private var retriesScheduled = 0
+        private val retry = Runnable { start() }
         private val poll = object : Runnable {
             override fun run() {
                 helper.getRouteStateInfo()
@@ -81,7 +83,10 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
                 val previouslyGuiding = guiding
                 guiding = isRouteGuiding(routeStateInfo.naviMode.name)
                 if (!guiding) update("경로 없음")
-                else if (!previouslyGuiding) update("ETA 수신 대기")
+                else if (!previouslyGuiding) {
+                    update("ETA 수신 대기")
+                    helper.getDestinationInfo()
+                }
             }
 
             override fun onDestinationInfo(destinationInfo: DestinationInfo) = dispatch {
@@ -107,11 +112,22 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
                     poll.run()
                 }
             }, onFailed = {
-                dispatch { update("연결 실패") }
+                dispatch {
+                    val nextRetry = retriesScheduled + 1
+                    val delay = connectionRetryDelayMs(nextRetry)
+                    if (delay == null) {
+                        update("연결 실패")
+                    } else {
+                        retriesScheduled = nextRetry
+                        main.postDelayed(retry, delay)
+                        update("연결 재시도 중 ($nextRetry/$MAX_CONNECTION_RETRIES)")
+                    }
+                }
             })
         }
 
         fun close() {
+            main.removeCallbacks(retry)
             main.removeCallbacks(poll)
             if (connected) helper.removeListener(listener)
             helper.release()

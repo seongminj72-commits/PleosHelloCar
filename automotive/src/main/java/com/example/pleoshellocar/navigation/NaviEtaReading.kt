@@ -9,3 +9,8 @@ internal fun isEtaExpired(receivedAt: Long, now: Long): Boolean =
 
 internal fun etaMinutes(seconds: Int): Int? =
     seconds.takeIf { it >= 0 }?.let { ((it.toLong() + 59) / 60).toInt() }
+
+internal const val MAX_CONNECTION_RETRIES = 3
+
+internal fun connectionRetryDelayMs(retryNumber: Int): Long? =
+    5_000L.takeIf { retryNumber in 1..MAX_CONNECTION_RETRIES }

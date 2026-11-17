@@ -24,4 +24,11 @@ class NaviEtaReadingTest {
         assertFalse(isRouteGuiding("SAFE_GUIDING"))
         assertFalse(isRouteGuiding("UNKNOWN"))
     }
+    @Test fun schedulesOnlyThreeConnectionRetriesAtFiveSecondIntervals() {
+        assertNull(connectionRetryDelayMs(0))
+        assertEquals(5_000L, connectionRetryDelayMs(1))
+        assertEquals(5_000L, connectionRetryDelayMs(2))
+        assertEquals(5_000L, connectionRetryDelayMs(3))
+        assertNull(connectionRetryDelayMs(4))
+    }
 }
