@@ -46,3 +46,5 @@
 [음성 안내가 끝난 시점의 Navigation 화면](validation-scheduled-dispatch/05-navigation-foreground-tts-completed.png)
 
 이 시험으로 서비스가 백그라운드에 있는 동안 전달 음성의 SDK 완료 콜백까지 처리되는 것을 확인했다. 에뮬레이터의 실제 소리 청취 여부는 별도 확인하지 않았다. ETA 급증, 통신 단절·복구·마감 실패, 주행 중 취소 역시 아직 미실행이다.
+
+빌드/설치 확인: 수정본은 서명 환경에서 release APK로 생성됐고 `apksigner verify` v2 및 `adb install -r`가 통과했다. `./gradlew test` 결과 XML 합계는 104개(실패 0, 오류 0). 최종 화면은 콘솔 P·0, 앱 Mock/PARKED 홈이며 [최종 상태 화면](validation-scheduled-dispatch/06-final-mock-parked-home.png)으로 남겼다.
