@@ -69,4 +69,4 @@ Automotive Application이 매장 일치 ETA 공급자와 예약·주문 저장�
 
 ### 예약 전달 release 검증
 
-2026-11-17 서명 release에서 P·0 상태의 내비 전면 자동 전달을 확인했다. 실제 전달 로그와 주문 상태에 지연 안내가 남았다. TTS는 실패했고 Virtual Console은 D·속도 입력에 HTTP 503을 반환해 주행 조건을 만들지 못했다. TTS 요청 시점을 보완한 후속 빌드는 테스트 및 release assemble은 성공했으나 아직 미서명·미설치다. 회차별 상세, 캡처와 미실행 항목은 [예약 전달 release 검증 기록](validation-scheduled-dispatch.md)을 참조한다.
+2026-11-17 서명 release에서 P·0 상태의 내비 전면 자동 전달을 확인했다. 실제 전달 로그와 주문 상태에 지연 안내가 남았다. TTS는 실패했고 Virtual Console은 D·속도 입력에 HTTP 503을 반환해 주행 조건을 만들지 못했다. TTS 요청 시점 보완 후속 서명 release에서는 Navigation 전면 상태에서 자동 전달과 ON_DEVICE TTS onReady→onStart→onDone 콜백을 확인했다. 회차별 상세, 캡처와 미실행 항목은 [예약 전달 release 검증 기록](validation-scheduled-dispatch.md)을 참조한다.

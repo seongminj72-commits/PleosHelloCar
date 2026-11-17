@@ -29,3 +29,20 @@
 - TTS 로그: 초기화 및 이벤트 리스너 설정 이후, 20초 제한에서 `ON_DEVICE TTS failed`
 - Virtual Console: `gear.bridge_ready=false`, `controls.emulator_active=false`, DDS 입력 `all=false`; gear/controls PUT 응답 HTTP 503
 - 미검증: 실제 차량, 다른 호스트, 실제 매장/POS, 실제 결제, release 실제 TMAP ETA, D·속도 > 0에서의 시나리오
+
+## 후속 서명 APK 시험 (2026-11-17)
+
+새 수정본을 기존 앱 위에 서명 업데이트 설치했고 `apksigner verify`의 v2 서명이 통과했다. Mock 차량은 PARKED, Mock ETA는 3분, 예약 시연 ETA는 25초 뒤 30→5분 설정이었다.
+
+| 시각 | 결과 |
+|---|---|
+| 21:48:06.987 | Navigation 앱이 전면인 상태에서 예약 자동 전달 완료. 앱 로그에 `데모 전달 완료. 약 1분 늦게 준비될 수 있습니다` |
+| 21:48:06.988 | ON_DEVICE TTS 초기화 시작 |
+| 21:48:10.012 | 3초 지연 요청 뒤 `onReady`, `onStart`; 앱 로그 `ON_DEVICE TTS started` |
+| 21:48:14.251 | `onDone`; 앱 로그 `ON_DEVICE TTS completed` |
+| 시험 종료 | Navigation이 전면 앱으로 유지됨. 크래시 및 `FATAL`, `IllegalAccess`, `ClassNotFound`, `NoSuchMethod`, `NoClassDefFound`, `VerifyError`, `AbstractMethodError`, `OverLimitFlowViolation` 로그 0건 |
+| Virtual Console | 여전히 gear bridge/DDS 입력 준비 안 됨(`bridge_ready=false`, `emulator_active=false`, `dds_ready.all=false`), 속도 0. 주행 조건은 미검증 |
+
+[음성 안내가 끝난 시점의 Navigation 화면](validation-scheduled-dispatch/05-navigation-foreground-tts-completed.png)
+
+이 시험으로 서비스가 백그라운드에 있는 동안 전달 음성의 SDK 완료 콜백까지 처리되는 것을 확인했다. 에뮬레이터의 실제 소리 청취 여부는 별도 확인하지 않았다. ETA 급증, 통신 단절·복구·마감 실패, 주행 중 취소 역시 아직 미실행이다.
