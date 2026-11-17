@@ -1,13 +1,23 @@
 package com.example.pleoshellocar.vehicle
 
 import android.app.Application
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import androidx.car.app.CarContext
 import com.example.pleoshellocar.navigation.NaviHelperEtaProvider
+import com.example.pleoshellocar.navigation.ScheduledDispatchService
+import com.example.pleoshellocar.shared.domain.ScheduledOrderRepository
 import com.example.pleoshellocar.shared.navigation.NavigationEtaFactory
 import com.example.pleoshellocar.shared.vehicle.VehicleSignalFactory
 
 class VehicleApplication : Application(), VehicleSignalFactory, NavigationEtaFactory {
-    override fun createNavigationEta(context: CarContext) = NaviHelperEtaProvider(context)
+    val navigationEta by lazy { NaviHelperEtaProvider(this) }
+    override val scheduledOrders = ScheduledOrderRepository()
+
+    override fun createNavigationEta(context: CarContext) = navigationEta
+    override fun startScheduledDispatch() {
+        ContextCompat.startForegroundService(this, Intent(this, ScheduledDispatchService::class.java))
+    }
 
     override fun createVehicleSignal(context: CarContext) = AaosVehicleStateProvider(context)
 }

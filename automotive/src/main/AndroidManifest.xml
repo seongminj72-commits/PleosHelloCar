@@ -29,12 +29,12 @@
         android:theme="@style/Theme.PleosHelloCar">
 
         <service
-            android:name="com.example.pleoshellocar.navigation.DispatchProbeService"
+            android:name="com.example.pleoshellocar.navigation.ScheduledDispatchService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Time-limited user-initiated vehicle ETA monitoring for pickup dispatch demo" />
+                android:value="User-confirmed pickup order dispatch based on active navigation ETA" />
         </service>
 
         <uses-library android:name="android.car" android:required="false" />

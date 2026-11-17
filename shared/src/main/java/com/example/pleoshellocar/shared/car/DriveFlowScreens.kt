@@ -20,9 +20,8 @@ abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowCont
     private val etaChanged: () -> Unit = { invalidate() }
     private val vehicleChanged: () -> Unit = { invalidate() }
     init { lifecycle.addObserver(object : DefaultLifecycleObserver {
-        override fun onStart(owner: LifecycleOwner) { android.util.Log.i("DispatchProbe", "screen=${this@FlowScreen.javaClass.simpleName} onStart"); flow.navigation.addListener(etaChanged); flow.vehicle.addListener(vehicleChanged) }
-        override fun onStop(owner: LifecycleOwner) { android.util.Log.i("DispatchProbe", "screen=${this@FlowScreen.javaClass.simpleName} onStop"); flow.navigation.removeListener(etaChanged); flow.vehicle.removeListener(vehicleChanged) }
-        override fun onDestroy(owner: LifecycleOwner) { android.util.Log.i("DispatchProbe", "screen=${this@FlowScreen.javaClass.simpleName} onDestroy") }
+        override fun onStart(owner: LifecycleOwner) { flow.navigation.addListener(etaChanged); flow.vehicle.addListener(vehicleChanged) }
+        override fun onStop(owner: LifecycleOwner) { flow.navigation.removeListener(etaChanged); flow.vehicle.removeListener(vehicleChanged) }
         override fun onResume(owner: LifecycleOwner) { invalidate() }
     }) }
 
