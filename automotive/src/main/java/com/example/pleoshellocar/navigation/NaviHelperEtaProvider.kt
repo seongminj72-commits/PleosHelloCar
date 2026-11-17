@@ -53,7 +53,7 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
         if (active == (connection != null)) return
         if (active) {
             update("연결 중")
-            val next = Connection()
+            val next = Connection(retryNumber = 0)
             connection = next
             next.start()
         } else {
@@ -64,12 +64,14 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
         }
     }
 
-    private inner class Connection {
+    private inner class Connection(private val retryNumber: Int) {
         private val helper = NaviHelper(appContext)
         private var connected = false
         private var guiding = false
-        private var retriesScheduled = 0
-        private val retry = Runnable { start() }
+        private var closed = false
+        private val retry = Runnable {
+            if (connection === this && !closed) start()
+        }
         private val poll = object : Runnable {
             override fun run() {
                 helper.getRouteStateInfo()
@@ -113,20 +115,28 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
                 }
             }, onFailed = {
                 dispatch {
-                    val nextRetry = retriesScheduled + 1
+                    close()
+                    val nextRetry = retryNumber + 1
                     val delay = connectionRetryDelayMs(nextRetry)
                     if (delay == null) {
                         update("연결 실패")
                     } else {
-                        retriesScheduled = nextRetry
-                        main.postDelayed(retry, delay)
+                        val replacement = Connection(nextRetry)
+                        connection = replacement
+                        replacement.scheduleStart(delay)
                         update("연결 재시도 중 ($nextRetry/$MAX_CONNECTION_RETRIES)")
                     }
                 }
             })
         }
 
+        fun scheduleStart(delay: Long) {
+            main.postDelayed(retry, delay)
+        }
+
         fun close() {
+            if (closed) return
+            closed = true
             main.removeCallbacks(retry)
             main.removeCallbacks(poll)
             if (connected) helper.removeListener(listener)
@@ -134,7 +144,7 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
         }
 
         private fun dispatch(action: () -> Unit) {
-            main.post { if (connection === this) action() }
+            main.post { if (connection === this && !closed) action() }
         }
     }
 }
