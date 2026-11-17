@@ -96,3 +96,32 @@ Virtual Console에서 P·0 → D·ACCEL로 속도를 만들었다. 콘솔 계기
 | 실행 오류 패턴 | `logcat` 수집 구간에서 `FATAL`, `IllegalAccess`, `ClassNotFound`, `NoSuchMethod`, `NoClassDefFound`, `VerifyError`, `AbstractMethodError`, `OverLimitFlowViolation` 0건 |
 
 이 회차에서는 서명 및 앱 시작만 확인했다. 위 수동 시나리오를 통과한 것으로 간주하지 않는다. Virtual Console DDS 입력이 다시 준비되고 최신 ETA가 생성되는 조건에서 재시험해야 한다.
+
+## 예약 ETA 보정 서명 APK 재시험 (2026-11-18)
+
+### 환경 및 확인 결과
+
+- 수정된 `codex/scheduled-dispatch` 빌드의 사용자 서명 APK를 재빌드하지 않고 설치했다. 앱이 실행되어 DriveFlow 화면에 진입했다.
+- Pleos Connect v2.1.0 / API 34에서 Virtual Console을 cold boot 후 다시 열고 연결했다. Console 상태에서 `bridge_ready=true`, `emulator_active=true`, `dds_ready.all=true`, P·0을 확인했다.
+- Mock 차량을 PARKED로 두고 Coffee A에서 아메리카노 1잔을 예약했다. 확인 화면에 `[Mock ETA]`, 도착 약 8분, 준비 약 6분 및 주문 추천 문구가 표시됐다.
+- 자동 전달 예약을 만들고 기다린 뒤 주문 화면에서 `모의 결제 완료`, `데모 전달 완료`, 예약상태 `데모 전달 · 전달됨` 및 `Mock ETA 기준`을 확인했다. 주문은 이후 `픽업 완료`까지 진행했다. 이는 직전 서명 APK에서 재현되지 않았던 Mock 예약 거절의 수정 경로를 확인한 결과다.
+- 내비 목적지 경로 안내를 시작해 Navigation 앱에서 Coffee A 경로를 확인했다. DriveFlow 화면의 ETA 상태에 `[내비 ETA] DriveFlow Coffee A까지 약 27분`이 표시됐다.
+- 실제 차량 모드에서 Virtual Console D·53km/h를 AAOS 신호로 확인했다. 이 상태에서 REAL→Mock 전환을 시도해 정차 전용 거부 안내를 확인했다. 콘솔은 시험 종료 시 P·0으로 돌렸다.
+- 예약 전달 구간에서 크래시, `FATAL`, `OverLimitFlowViolation`, `IllegalAccess`, `ClassNotFound`, `NoSuchMethod`, `NoClassDefFound`, `VerifyError`, `AbstractMethodError`는 관찰되지 않았다.
+
+### 이번 회차 판정
+
+| 항목 | 결과 |
+|---|---|
+| Virtual Console 재연결 및 bridge/DDS 준비 | 통과 |
+| Mock ETA 자동 전달 및 `Mock ETA 기준` 표시 | 통과 |
+| Coffee A 내비 경로와 내비 ETA 표시 | 통과 |
+| 실제 D·53km/h 신호 및 REAL→Mock fail-closed | 통과 |
+| 내비 ETA를 이용한 주행 중·Navigation 전면 자동 전달 및 음성 안내 | 미실행 — 이번 예약 자동 전달은 Mock ETA 시나리오였음 |
+| ETA RISE 후 전달 시점 재계산 | 미실행 |
+| 매장 통신 단절 후 복구 시 정확히 1회 전달 | 미실행 |
+| 매장 통신 단절 유지 후 마감 실패 | 미실행 |
+| 주행 중 예약 취소 | 미실행 |
+| 알림 권한 거부 상태에서 전달 | 미실행 — 이번 회차 알림 권한은 허용 상태 |
+
+이 결과는 서명 APK에서 Mock 자동 전달의 ETA 시계 보정을 확인하지만, 위 미실행 항목은 통과로 간주하지 않는다. 실제 결제/POS, 실차 및 다른 호스트는 검증하지 않았다.
