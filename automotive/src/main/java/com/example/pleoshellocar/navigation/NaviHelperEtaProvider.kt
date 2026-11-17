@@ -125,6 +125,7 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
                         destinationInfo.remainTime < 0 -> update("ETA 정보 없음")
                         else -> {
                             finishRouteRequest()
+                            android.util.Log.i("DispatchProbe", "matched destination ETA callback seconds=${destinationInfo.remainTime}")
                             update("경로 안내 중", Reading(destinationInfo.remainTime, SystemClock.elapsedRealtime()))
                         }
                     }
