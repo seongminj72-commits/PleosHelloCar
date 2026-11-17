@@ -4,6 +4,7 @@ interface NavigationEtaProvider {
     fun getEstimatedArrivalMinutes(): Int?
     val statusLabel: String get() = "[Mock ETA] 오프라인 데모"
     fun selectDestination(point: GeoPoint?) {}
+    fun selectStoreDestination(name: String, point: GeoPoint?) = selectDestination(point)
     fun addListener(listener: () -> Unit) {}
     fun removeListener(listener: () -> Unit) {}
 }

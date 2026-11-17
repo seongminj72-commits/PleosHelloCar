@@ -25,7 +25,10 @@ class DriveFlowController(
         InteractionPolicy.requireParked(vehicle)
         check(orders.latest()?.terminal != false) { "진행 중인 주문이 있습니다." }
         require(store in stores.stores() && store.acceptingOrders) { "현재 주문할 수 없는 매장입니다." }
-        selectedStore = store; navigation.selectDestination(store.routeTestPoint); quantities.clear(); requestId = UUID.randomUUID().toString()
+        selectedStore = store
+        navigation.selectStoreDestination(store.name, store.routeTestPoint)
+        quantities.clear()
+        requestId = UUID.randomUUID().toString()
     }
     fun setQuantity(item: MenuItem, quantity: Int) {
         InteractionPolicy.requireParked(vehicle)

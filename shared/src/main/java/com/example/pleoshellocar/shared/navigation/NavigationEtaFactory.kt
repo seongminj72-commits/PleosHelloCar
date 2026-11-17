@@ -8,4 +8,5 @@ interface NavigationEtaFactory {
 
 interface LifecycleNavigationEtaProvider : NavigationEtaProvider {
     fun setActive(active: Boolean)
+    fun requestStoreRoute()
 }
