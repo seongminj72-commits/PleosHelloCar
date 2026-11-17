@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import androidx.core.content.ContextCompat
 import androidx.car.app.CarContext
+import com.example.pleoshellocar.navigation.DispatchVoice
 import com.example.pleoshellocar.navigation.NaviHelperEtaProvider
 import com.example.pleoshellocar.navigation.ScheduledDispatchService
 import com.example.pleoshellocar.shared.domain.ScheduledOrderRepository
@@ -11,10 +12,13 @@ import com.example.pleoshellocar.shared.navigation.NavigationEtaFactory
 import com.example.pleoshellocar.shared.vehicle.VehicleSignalFactory
 
 class VehicleApplication : Application(), VehicleSignalFactory, NavigationEtaFactory {
+    val dispatchVoice by lazy { DispatchVoice(this) }
     val navigationEta by lazy { NaviHelperEtaProvider(this) }
     override val scheduledOrders = ScheduledOrderRepository()
 
     override fun createNavigationEta(context: CarContext) = navigationEta
+    override fun currentNavigationEta() = navigationEta.dispatchEta()
+
     override fun startScheduledDispatch() {
         ContextCompat.startForegroundService(this, Intent(this, ScheduledDispatchService::class.java))
     }

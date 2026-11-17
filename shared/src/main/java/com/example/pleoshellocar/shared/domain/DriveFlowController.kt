@@ -11,7 +11,11 @@ class DriveFlowController(
     val navigation: NavigationEtaProvider,
     val payment: PaymentSimulator,
     val orders: OrderRepository = MockOrderRepository(),
-    val stores: StoreRepository = MockStoreRepository()
+    val stores: StoreRepository = MockStoreRepository(),
+    val scheduledOrders: ScheduledOrderRepository? = null,
+    private val dispatchEta: () -> DispatchEta? = { null },
+    private val clock: () -> Long = { 0L },
+    private val startDispatch: () -> Unit = {}
 ) {
     var selectedStore: Store? = null; private set
     private val quantities = linkedMapOf<String, Int>()
@@ -23,6 +27,7 @@ class DriveFlowController(
     fun quantity(id: String) = quantities[id] ?: 0
     fun selectStore(store: Store) {
         InteractionPolicy.requireParked(vehicle)
+        requireNoReservation()
         check(orders.latest()?.terminal != false) { "진행 중인 주문이 있습니다." }
         require(store in stores.stores() && store.acceptingOrders) { "현재 주문할 수 없는 매장입니다." }
         selectedStore = store
@@ -51,8 +56,34 @@ class DriveFlowController(
         val recommendation = recommendation()
         return "${recommendation.label} · ${recommendation.reason}"
     }
+    val reservationActive get() = scheduledOrders?.current?.status?.terminal == false
+
+    private fun requireNoReservation() {
+        check(!reservationActive) { "내 주문에서 전달 예약을 확인하세요." }
+    }
+
+    fun reserveDispatch() {
+        InteractionPolicy.requireParked(vehicle)
+        val repository = checkNotNull(scheduledOrders) { "자동 전달을 사용할 수 없습니다." }
+        val source = (navigation as? SelectableNavigationEtaProvider)?.source ?: EtaSource.MOCK
+        check(source != EtaSource.TMAP) { "자동 전달은 내비 또는 Mock ETA를 선택하세요." }
+        val now = clock()
+        val eta = checkNotNull(dispatchEta()?.takeIf { it.fresh(now) && it.arrivalAt > now }) { "최신 도착 예상시간을 확인하세요." }
+        val store = checkNotNull(selectedStore) { "매장을 선택하세요." }
+        val items = lines()
+        check(items.isNotEmpty()) { "메뉴를 선택하세요." }
+        repository.reserve(ScheduledOrder(requestId, store, items, preparationEstimate(), source, now, eta.arrivalAt, eta))
+        try {
+            startDispatch()
+        } catch (_: RuntimeException) {
+            repository.failStart()
+            error("자동 전달을 시작할 수 없습니다.")
+        }
+    }
+
     fun checkout(): Order {
         InteractionPolicy.requireParked(vehicle)
+        requireNoReservation()
         val store = requireNotNull(selectedStore) { "매장을 선택하세요." }
         val order = orders.create(requestId, store, lines())
         if (order.status != OrderStatus.ORDER_CREATED) {

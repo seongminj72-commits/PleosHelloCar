@@ -9,8 +9,9 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import androidx.car.app.notification.CarAppExtender
+import androidx.car.app.notification.CarNotificationManager
 import androidx.core.app.NotificationCompat
-import com.example.pleoshellocar.shared.domain.DispatchEta
 import com.example.pleoshellocar.shared.navigation.EtaSource
 import com.example.pleoshellocar.vehicle.VehicleApplication
 
@@ -58,6 +59,16 @@ class ScheduledDispatchService : Service() {
 
     private fun announce(message: String) {
         android.util.Log.i("ScheduledDispatch", message)
+        val requestId = app.scheduledOrders.current?.requestId ?: return
+        app.dispatchVoice.speak(message) { app.scheduledOrders.voiceFailed(requestId) }
+        runCatching {
+            val notice = NotificationCompat.Builder(this, CHANNEL)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("Pleos DriveFlow")
+                .setContentText(message)
+                .extend(CarAppExtender.Builder().build())
+            CarNotificationManager.from(this).notify(712, notice)
+        }.onFailure { android.util.Log.w("ScheduledDispatch", "Notification unavailable") }
     }
 
     override fun onDestroy() {
