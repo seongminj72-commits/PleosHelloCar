@@ -1,0 +1,4 @@
+11-18 01:00:07.177   787  1406 I ActivityManager: Background started FGS: Allowed [callingPackage: com.example.pleoshellocar; callingUid: 1010182; uidState: TOP ; uidBFSL: [BFSL]; intent: Intent { cmp=com.example.pleoshellocar/.navigation.ScheduledDispatchService }; code:PROC_STATE_TOP; tempAllowListReason:<null>; targetSdkVersion:37; callerTargetSdkVersion:37; startForegroundCount:0; bindFromPackage:null: isBindService:false]
+11-18 01:00:32.202 13446 13446 I ScheduledDispatch: 데모 전달 완료. 약 1분 늦게 준비될 수 있습니다
+11-18 01:00:35.215 13446 13446 I ScheduledDispatch: ON_DEVICE TTS started
+11-18 01:00:39.233 13446 13446 I ScheduledDispatch: ON_DEVICE TTS completed

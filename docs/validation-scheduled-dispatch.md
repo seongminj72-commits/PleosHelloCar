@@ -125,3 +125,18 @@ Virtual Console에서 P·0 → D·ACCEL로 속도를 만들었다. 콘솔 계기
 | 알림 권한 거부 상태에서 전달 | 미실행 — 이번 회차 알림 권한은 허용 상태 |
 
 이 결과는 서명 APK에서 Mock 자동 전달의 ETA 시계 보정을 확인하지만, 위 미실행 항목은 통과로 간주하지 않는다. 실제 결제/POS, 실차 및 다른 호스트는 검증하지 않았다.
+
+## PR #14 남은 검증 시도 (2026-11-18, 서명 APK 동일)
+
+Virtual Console을 다시 열고 ADB 8088 forward를 연결했다. `/vehicle/state`에서 `bridge_ready=true`, `emulator_active=true`, `dds_ready.all=true`, Park·0km/h를 확인했다. 앱은 실제 차량 모드에서 `PARKED`를 표시했다. 에뮬레이터 오디오를 켜고 시험했다.
+
+| 순서 | 결과 | 근거 |
+|---|---|---|
+| 1. 내비 ETA 자동 전달 | **통과, DROP 사용.** Coffee A 경로의 실제 내비 ETA 약 27분을 확인하고 아메리카노 1잔을 예약했다. 시연 ETA를 `25초 뒤 30→5분`으로 설정했다. Navigation 전면, 콘솔 D·34km/h에서 `ScheduledDispatch`가 01:00:32에 `데모 전달 완료. 약 1분 늦게 준비될 수 있습니다`를 기록했다. 01:00:35 `ON_DEVICE TTS started`, 01:00:39 `completed`. 사용자가 한국어 음성이 실제로 들렸다고 답했다. 주문 화면에 `전달됨`, 주문번호, 모의 결제 완료가 표시됐다. | [Navigation 전면](validation-scheduled-dispatch/08-navigation-d34-drop.png), [전달됨 상태](validation-scheduled-dispatch/09-navigation-delivered.png), [태그 로그](validation-scheduled-dispatch/08-scheduled-dispatch.log) |
+| 2. 주행 중 예약 취소 | **통과.** 새 RISE 시연 예약 뒤 D·27km/h에서 `예약 취소` 행을 실행했다. 예약 상태가 `취소됨`으로 바뀌었고 기존 완료 주문번호만 표시됐다. 새 주문 생성은 관측되지 않았다. | [취소됨 상태](validation-scheduled-dispatch/10-driving-cancelled.png) |
+| 3. RISE | **판정 불가.** P·0에서 `25초 뒤 10→30분` 설정 후 예약했다. 증가 전 `예상 전달 약 3분 후`, `최근 ETA 기준 도착까지 약 10분`을 확인했다. 25초 뒤 화면·로그를 수집하려던 시점에 ADB가 `offline`으로 바뀌고 Virtual Console 8088 연결도 끊겨 증가 후 상태를 확인하지 못했다. | [증가 전 예약](validation-scheduled-dispatch/11-rise-before.png) |
+| 4. 통신 단절→복구 | 미실행 — 에뮬레이터 연결이 끊긴 뒤 진행 중단 |
+| 5. 단절 유지→마감 실패 | 미실행 — 동일 |
+| 6. 알림 권한 거부 뒤 전달 판단 | 미실행 — 동일 |
+
+에뮬레이터 프로세스는 남아 있었지만 `adb -P 5037 devices`와 `adb -P 5038 devices` 모두 `emulator-5554 offline`을 반환했다. 이 회차에서 3~6을 통과로 표시하지 않는다. 코드와 APK는 변경하지 않았다. PR 본문은 사용자가 지정한 대로 Claude가 갱신한다.
