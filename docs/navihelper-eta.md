@@ -13,9 +13,9 @@ Automotive의 **서비스 상태 / 데모 설정 → ETA 연결 설정 → ETA �
 | 검증 | 결과 |
 |---|---|
 | `./gradlew test :automotive:assembleRelease` | 성공. JUnit XML 94개(기존 91 + 신규 3, shared 85 / automotive 8 / mobile 1). 서명 속성 없이 R8 release 빌드. |
-| 서명 release 설치 및 활성 목적지 ETA 반영 | 미실행. 사용자 서명 APK 대기 중. |
-| ETA 변경에 따른 주문 추천 갱신 | 미실행. 사용자 서명 APK 대기 중. |
-| 목적지 취소 후 경로 없음 상태 | 미실행. 사용자 서명 APK 대기 중. |
-| release 크래시 및 keep 규칙 전후 비교 | 미실행. 실제 앱 release에서 크래시가 재현될 때 비교한다. |
+| 서명 release 설치 및 활성 목적지 ETA 반영 | 통과. Pleos Connect v2.1.0(API 34), P·0에서 `apksigner verify` 및 기존 앱 위 업데이트 설치 성공. [메뉴에서 ETA 80분·73분 후 주문 추천 확인](validation-navihelper/01-active-eta.png). |
+| ETA 변경에 따른 주문 추천 갱신 | 통과. Navigation에서 더 가까운 목적지로 안내를 시작하고 같은 메뉴 화면으로 돌아오자 아메리카노 1개가 유지된 상태에서 [ETA 19분·12분 후 주문 추천](validation-navihelper/02-changed-eta.png)으로 갱신. |
+| 목적지 취소 후 경로 없음 상태 | 통과. 안내 종료 후 [경로 없음·도착 후 주문 추천](validation-navihelper/03-no-route.png) 표시. |
+| R8 release 실행 | 시험 구간에서 크래시 없음. `FATAL EXCEPTION\|OverLimitFlowViolation\|ClassCastException\|IllegalAccessError\|NoSuchMethodError\|NoClassDefFoundError` 로그 검색 0건. Pleos keep 규칙 비교는 크래시가 재현되지 않아 미실행. |
 
-서명 APK에서 확인할 때는 Navigation 앱의 안내를 시작한 뒤 내비 모드를 선택하고, 매장과 메뉴를 골라 내비 ETA 및 주문 추천을 확인한다. 목적지를 더 가까운 곳으로 바꾸고 ETA 및 추천이 갱신되는지 확인한 뒤 안내를 취소한다. 각 단계의 화면을 `docs/validation-navihelper/`에 기록한다.
+2026-11-17 시험에서 `DriveFlowETA` 로그는 10:08:07에 80분, 10:09:14에 19분, 10:09:32에 경로 없음을 남겼다. ETA 변경과 취소는 Navigation 앱에서 조작한 뒤 DriveFlow로 돌아오는 흐름으로 확인했다. 이 시험에서는 주행 중 ETA 변화와 런타임 만료·연결 실패를 유도하지 않았다.
