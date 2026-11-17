@@ -1,5 +1,6 @@
 package com.example.pleoshellocar.navigation
 
+import com.example.pleoshellocar.shared.navigation.GeoPoint
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -30,5 +31,14 @@ class NaviEtaReadingTest {
         assertEquals(5_000L, connectionRetryDelayMs(2))
         assertEquals(5_000L, connectionRetryDelayMs(3))
         assertNull(connectionRetryDelayMs(4))
+    }
+
+    @Test fun comparesDestinationCoordinatesAgainstThreeHundredMeters() {
+        val store = GeoPoint(37.5665, 126.9780)
+        assertTrue(matchesStoreDestination(store, store.latitude, store.longitude))
+        assertTrue(matchesStoreDestination(store, 37.5691, store.longitude))
+        assertFalse(matchesStoreDestination(store, 37.5693, store.longitude))
+        assertFalse(matchesStoreDestination(store, Double.NaN, store.longitude))
+        assertTrue(matchesStoreDestination(GeoPoint(0.0, 179.9999), 0.0, -179.9999))
     }
 }

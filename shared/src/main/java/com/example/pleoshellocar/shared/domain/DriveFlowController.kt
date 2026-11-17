@@ -25,7 +25,10 @@ class DriveFlowController(
         InteractionPolicy.requireParked(vehicle)
         check(orders.latest()?.terminal != false) { "진행 중인 주문이 있습니다." }
         require(store in stores.stores() && store.acceptingOrders) { "현재 주문할 수 없는 매장입니다." }
-        selectedStore = store; navigation.selectDestination(store.routeTestPoint); quantities.clear(); requestId = UUID.randomUUID().toString()
+        selectedStore = store
+        navigation.selectStoreDestination(store.name, store.routeTestPoint)
+        quantities.clear()
+        requestId = UUID.randomUUID().toString()
     }
     fun setQuantity(item: MenuItem, quantity: Int) {
         InteractionPolicy.requireParked(vehicle)
@@ -43,6 +46,11 @@ class DriveFlowController(
         ?: PreparationEstimate.of(selectedStore?.preparationMinutes ?: 6, lines())
     fun recommendation() = OrderTimingCalculator().recommend(navigation.getEstimatedArrivalMinutes(),
         preparationEstimate().totalMinutes, possibleDelay = possibleDelay)
+    fun recommendationText(): String {
+        if (lines().isEmpty()) return "메뉴를 선택하면 주문 시점을 추천합니다"
+        val recommendation = recommendation()
+        return "${recommendation.label} · ${recommendation.reason}"
+    }
     fun checkout(): Order {
         InteractionPolicy.requireParked(vehicle)
         val store = requireNotNull(selectedStore) { "매장을 선택하세요." }

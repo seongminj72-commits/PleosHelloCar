@@ -26,6 +26,15 @@ class SelectableNavigationEtaProvider(
     override val statusLabel get() = selected.statusLabel
     override fun getEstimatedArrivalMinutes() = selected.getEstimatedArrivalMinutes()
     override fun selectDestination(point: GeoPoint?) = tmap.selectDestination(point)
+    override fun selectStoreDestination(name: String, point: GeoPoint?) {
+        tmap.selectDestination(point)
+        navigation?.selectStoreDestination(name, point)
+    }
+
+    fun requestStoreRoute() {
+        check(source == EtaSource.NAVIGATION) { "내비 ETA 모드를 선택하세요." }
+        checkNotNull(navigation).requestStoreRoute()
+    }
     override fun addListener(listener: () -> Unit) { listeners.add(listener) }
     override fun removeListener(listener: () -> Unit) { listeners.remove(listener) }
     private fun changed() = listeners.toList().forEach { it() }

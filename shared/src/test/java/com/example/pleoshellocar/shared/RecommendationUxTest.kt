@@ -35,6 +35,29 @@ class RecommendationUxTest {
     @Test fun emptyCartUsesStoreBase() {
         assertEquals(PreparationEstimate(6, 0, 0), controller().preparationEstimate())
     }
+    @Test fun recommendationOnlyReadsEtaWhenTheCartHasItems() {
+        var etaReads = 0
+        val navigation = object : NavigationEtaProvider {
+            override fun getEstimatedArrivalMinutes(): Int {
+                etaReads++
+                return 8
+            }
+        }
+        val c = DriveFlowController(MockVehicleStateProvider(VehicleState.PARKED), navigation, MockPaymentSimulator())
+        c.selectStore(c.stores.stores().first())
+
+        val prompt = "메뉴를 선택하면 주문 시점을 추천합니다"
+        assertEquals(prompt, c.recommendationText())
+        assertEquals(0, etaReads)
+
+        c.setQuantity(menu[0], 1)
+        assertTrue(c.recommendationText().startsWith("약 1분 후 주문 추천"))
+        assertEquals(1, etaReads)
+
+        c.setQuantity(menu[0], 0)
+        assertEquals(prompt, c.recommendationText())
+        assertEquals(1, etaReads)
+    }
     @Test fun onlySlowestMenuExtraCounts() {
         val c = controller(); c.setQuantity(menu[0], 1); c.setQuantity(menu[2], 1)
         assertEquals(PreparationEstimate(6, 2, 0), c.preparationEstimate())

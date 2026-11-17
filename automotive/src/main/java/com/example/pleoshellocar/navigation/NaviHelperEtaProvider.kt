@@ -7,8 +7,11 @@ import android.os.SystemClock
 import ai.pleos.playground.navi.constants.NaviErrorCode
 import ai.pleos.playground.navi.data.DestinationInfo
 import ai.pleos.playground.navi.data.RouteStateInfo
+import ai.pleos.playground.navi.data.RouteInfo
+import ai.pleos.playground.navi.data.RouteStartInfo
 import ai.pleos.playground.navi.helper.NaviHelper
 import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
+import com.example.pleoshellocar.shared.navigation.GeoPoint
 import com.example.pleoshellocar.shared.navigation.LifecycleNavigationEtaProvider
 
 /** Reads the Navigation app's active destination. State is confined to the main thread. */
@@ -18,13 +21,16 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
     private val listeners = linkedSetOf<() -> Unit>()
     private var connection: Connection? = null
     private var reading: Reading? = null
+    private var store: StoreDestination? = null
     private var state = "연결 대기"
+
+    private data class StoreDestination(val name: String, val point: GeoPoint)
 
     private data class Reading(val seconds: Int, val receivedAt: Long)
 
     override val statusLabel: String
         get() = "[내비 ETA] " + when {
-            getEstimatedArrivalMinutes() != null -> "현재 내비 목적지까지 약 ${getEstimatedArrivalMinutes()}분"
+            getEstimatedArrivalMinutes() != null -> "${store?.name}까지 약 ${getEstimatedArrivalMinutes()}분"
             reading != null -> "ETA 유효시간 만료"
             else -> state
         }
@@ -34,6 +40,18 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
 
     override fun addListener(listener: () -> Unit) { listeners.add(listener) }
     override fun removeListener(listener: () -> Unit) { listeners.remove(listener) }
+
+    override fun selectStoreDestination(name: String, point: GeoPoint?) {
+        val selected = point?.let { StoreDestination(name, it) }
+        if (store == selected) return
+        store = selected
+        connection?.refreshForStore()
+    }
+
+    override fun requestStoreRoute() {
+        val target = checkNotNull(store) { "경로를 설정할 매장을 선택하세요." }
+        checkNotNull(connection) { "내비 연결이 필요합니다." }.requestRoute(target)
+    }
 
     private val expiry = Runnable { update("ETA 유효시간 만료") }
 
@@ -69,6 +87,11 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
         private var connected = false
         private var guiding = false
         private var closed = false
+        private var routePending = false
+        private val routeTimeout = Runnable {
+            finishRouteRequest()
+            update("경로 탐색 응답 없음")
+        }
         private val retry = Runnable {
             if (connection === this && !closed) start()
         }
@@ -84,25 +107,85 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
             override fun onRouteStateInfo(routeStateInfo: RouteStateInfo) = dispatch {
                 val previouslyGuiding = guiding
                 guiding = isRouteGuiding(routeStateInfo.naviMode.name)
-                if (!guiding) update("경로 없음")
-                else if (!previouslyGuiding) {
-                    update("ETA 수신 대기")
+                if (!guiding && !routePending) update("경로 없음")
+                else if (guiding && !previouslyGuiding) {
+                    if (!routePending) update("ETA 수신 대기")
                     helper.getDestinationInfo()
                 }
             }
 
             override fun onDestinationInfo(destinationInfo: DestinationInfo) = dispatch {
                 if (guiding) {
-                    val seconds = destinationInfo.remainTime
-                    if (seconds < 0) update("ETA 정보 없음")
-                    else update("경로 안내 중", Reading(seconds, SystemClock.elapsedRealtime()))
+                    val target = store
+                    when {
+                        target == null -> update("매장을 선택하세요")
+                        !matchesStoreDestination(target.point, destinationInfo.latitude, destinationInfo.longitude) -> {
+                            if (!routePending) update("내비 목적지가 선택한 매장과 다릅니다")
+                        }
+                        destinationInfo.remainTime < 0 -> update("ETA 정보 없음")
+                        else -> {
+                            finishRouteRequest()
+                            update("경로 안내 중", Reading(destinationInfo.remainTime, SystemClock.elapsedRealtime()))
+                        }
+                    }
                 }
+            }
+
+            override fun onRouteStarted(routeStartInfo: RouteStartInfo) = dispatch {
+                if (routePending) update("매장 경로 탐색 중")
+            }
+
+            override fun onRoutingCompleted() = dispatch {
+                if (routePending) update("경로 탐색 완료 · 매장 목적지 확인 중")
+                helper.getRouteStateInfo()
+                helper.getDestinationInfo()
+            }
+
+            override fun onDestinationChanged() = dispatch {
+                if (!routePending) update("내비 목적지 확인 중")
+                helper.getRouteStateInfo()
+                helper.getDestinationInfo()
             }
 
             override fun onError(errorCode: NaviErrorCode) = dispatch {
                 guiding = false
+                finishRouteRequest()
                 update("내비 오류 (${errorCode.name})")
             }
+        }
+
+        fun refreshForStore() {
+            finishRouteRequest()
+            if (!connected) return
+            update(if (store == null) "매장을 선택하세요" else "내비 목적지 확인 중")
+            helper.getRouteStateInfo()
+            helper.getDestinationInfo()
+        }
+
+        fun requestRoute(target: StoreDestination) {
+            check(connected && !closed) { "내비 연결을 확인하세요." }
+            check(!routePending) { "매장 경로를 탐색 중입니다." }
+            routePending = true
+            update("매장 경로 요청 중")
+            main.postDelayed(routeTimeout, 30_000)
+            try {
+                helper.requestRoute(RouteInfo(
+                    latitude = target.point.latitude,
+                    longitude = target.point.longitude,
+                    poiName = target.name,
+                    poiId = "",
+                    address = "",
+                    poiSubId = ""
+                ))
+            } catch (error: RuntimeException) {
+                finishRouteRequest()
+                update("매장 경로 요청 실패")
+            }
+        }
+
+        private fun finishRouteRequest() {
+            routePending = false
+            main.removeCallbacks(routeTimeout)
         }
 
         fun start() {
@@ -137,6 +220,7 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
         fun close() {
             if (closed) return
             closed = true
+            finishRouteRequest()
             main.removeCallbacks(retry)
             main.removeCallbacks(poll)
             if (connected) helper.removeListener(listener)

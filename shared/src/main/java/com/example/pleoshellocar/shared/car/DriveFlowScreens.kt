@@ -137,9 +137,15 @@ class MenuScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(co
                 flow.setQuantity(item, (qty + 1) % 4)
             }
         }
-        val recommendation = flow.recommendation()
-        val recRow = row("주문 추천", "${flow.navigation.statusLabel} · ${recommendation.label} · ${recommendation.reason}", parked = false)
-        val totalRow = row("합계", "${formatWon(flow.totalWon())}원", parked = false)
+        val recRow = row("주문 추천", "${flow.navigation.statusLabel} · ${flow.recommendationText()}", parked = false)
+        val total = "${formatWon(flow.totalWon())}원"
+        val navigation = flow.navigation as? SelectableNavigationEtaProvider
+        val totalRow = if (navigation?.source == EtaSource.NAVIGATION && flow.selectedStore?.routeTestPoint != null) {
+            row("합계 / 매장 안내", "$total · 내비 경로 설정", parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
+                screenManager.push(StoreRouteScreen(carContext, flow, navigation))
+            }
+        } else row("합계", total)
 
         // 최대 6행: 메뉴 4개 + 추천 + 합계
         val rows = menuRows + listOf(recRow, totalRow)
@@ -152,15 +158,31 @@ class MenuScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(co
     }
 }
 
+class StoreRouteScreen(
+    context: CarContext,
+    flow: DriveFlowController,
+    private val navigation: SelectableNavigationEtaProvider
+) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template {
+        val rows = mutableListOf(row("내비 상태", navigation.statusLabel))
+        if (flow.vehicle.getVehicleState() == VehicleState.PARKED) {
+            rows.add(row("이 매장으로 안내 시작", checkNotNull(flow.selectedStore).name, parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
+                navigation.requestStoreRoute()
+            })
+        }
+        return list("매장 안내", rows)
+    }
+}
+
 class ConfirmationScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
     override fun onGetTemplate(): Template {
-        val recommendation = flow.recommendation()
         val orderSummary = flow.lines().joinToString(", ") { "${it.item.name} ${it.quantity}개" }
         val totalWon = formatWon(flow.totalWon())
 
         val rows = listOf(
             row(flow.selectedStore!!.name, "${totalWon}원 · $orderSummary"),
-            row("주문 추천", "${flow.navigation.statusLabel} · ${recommendation.label} · ${recommendation.reason}"),
+            row("주문 추천", "${flow.navigation.statusLabel} · ${flow.recommendationText()}"),
             row("결제 안내", "데모 결제 — 실제 청구 없음 [${mockBadge()}]"),
             row("차량 상태", mockBadge())
         )
@@ -287,7 +309,7 @@ class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowSc
             row("ETA 새로고침", "30초 호출 간격 · 실패 시 Mock 자동 대체 없음", parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle); navigation.refreshTmap()
             },
-            row("연동 범위", "TMAP은 가상 매장 경로를 계산합니다. 내비 ETA는 Navigation 앱의 현재 목적지 기준입니다.")
+            row("연동 범위", "TMAP은 가상 매장 경로를 계산합니다. 내비 ETA는 선택한 가상 매장과 일치하는 경로만 사용합니다.")
         ))
     }
 }
