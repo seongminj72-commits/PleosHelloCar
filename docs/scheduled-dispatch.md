@@ -67,6 +67,6 @@ Automotive Application이 매장 일치 ETA 공급자와 예약·주문 저장�
 - 알림은 기록용이다. Android 알림 권한을 허용해야 표시될 수 있으며 Pleos heads-up 표시는 0단계에서 확인되지 않았다. Foreground Service specialUse 배포 적격성과 실제 한국어 청취는 미확인이다.
 - 정차 중 **서비스 상태 → ETA 연결 설정 → 예약 전달 시연**에서 25초 뒤 30→5분, 25초 뒤 10→30분, 마감까지 25초 시연과 가상 매장 통신 단절을 설정할 수 있다. 시연 ETA는 화면에 구분해 표시되며 선택한 내비 소스의 실 ETA는 변경하지 않는다.
 
-### 서명 release 검증 대기
+### 예약 전달 release 검증
 
-Coffee A 내비 전면과 Virtual Console D·속도 > 0에서 자동 전달 및 TTS 콜백, ETA 증가·감소, 통신 단절 뒤 복구·마감 실패, 주행 중 예약 취소를 확인할 예정이다. SDK 콜백과 실제 소리 청취를 각각 기록한다. 이 표의 에뮬레이터 시나리오는 서명 APK 대기로 미실행이다.
+2026-11-17 서명 release에서 P·0 상태의 내비 전면 자동 전달을 확인했다. 실제 전달 로그와 주문 상태에 지연 안내가 남았다. TTS는 실패했고 Virtual Console은 D·속도 입력에 HTTP 503을 반환해 주행 조건을 만들지 못했다. TTS 요청 시점을 보완한 후속 빌드는 테스트 및 release assemble은 성공했으나 아직 미서명·미설치다. 회차별 상세, 캡처와 미실행 항목은 [예약 전달 release 검증 기록](validation-scheduled-dispatch.md)을 참조한다.

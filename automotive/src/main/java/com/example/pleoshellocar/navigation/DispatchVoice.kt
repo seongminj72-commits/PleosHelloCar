@@ -33,13 +33,9 @@ class DispatchVoice(private val context: Context) {
         private val engine = TextToSpeech(context, Mode.ON_DEVICE)
         private var requested = false
         private val timeout = Runnable { finish(false) }
+        private val readyFallback = Runnable { requestSpeech() }
         private val listener = object : EventListener {
-            override fun onReady() = runOnMain {
-                if (!requested) {
-                    requested = true
-                    runCatching { engine.speak(message) }.onFailure { finish(false) }
-                }
-            }
+            override fun onReady() = runOnMain { requestSpeech() }
             override fun onStart() = runOnMain { Log.i("ScheduledDispatch", "ON_DEVICE TTS started") }
             override fun onDone() = runOnMain { finish(true) }
             override fun onStop() = runOnMain { finish(false) }
@@ -55,6 +51,8 @@ class DispatchVoice(private val context: Context) {
                         runCatching {
                             engine.addEventListener(listener)
                             engine.setLocale(Locale.KOREA)
+                            // The probe observed onReady immediately after its delayed speak call.
+                            main.postDelayed(readyFallback, 3_000)
                         }.onFailure { finish(false) }
                     }
                     override fun onFailure(errorType: ErrorType) = runOnMain { finish(false) }
@@ -62,7 +60,15 @@ class DispatchVoice(private val context: Context) {
             }.onFailure { finish(false) }
         }
 
+        private fun requestSpeech() {
+            if (current !== this || requested) return
+            requested = true
+            main.removeCallbacks(readyFallback)
+            runCatching { engine.speak(message) }.onFailure { finish(false) }
+        }
+
         fun close() {
+            main.removeCallbacks(readyFallback)
             main.removeCallbacks(timeout)
             runCatching { engine.removeEventListener(listener) }
             runCatching { engine.release() }
