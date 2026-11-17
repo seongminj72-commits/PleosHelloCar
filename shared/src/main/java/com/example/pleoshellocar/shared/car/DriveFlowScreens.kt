@@ -212,7 +212,7 @@ class DemoSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowS
     override fun onGetTemplate(): Template {
         val vehicle = flow.vehicle as? SwitchableVehicleStateProvider
         val mock = vehicle?.mock ?: (flow.vehicle as? MockVehicleStateProvider)
-        val navigation = (flow.navigation as? TmapNavigationEtaProvider)?.mock
+        val navigation = (flow.navigation as? SelectableNavigationEtaProvider)?.mock
             ?: (flow.navigation as? MockNavigationEtaProvider)
         val payment = flow.payment as? MockPaymentSimulator
         val stateRow = if (flow.vehicle.source == VehicleStateSource.MOCK && mock != null) {
@@ -271,22 +271,23 @@ class TimingSettingsScreen(context: CarContext, flow: DriveFlowController) : Flo
 
 class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
     override fun onGetTemplate(): Template {
-        val navigation = flow.navigation as? TmapNavigationEtaProvider
+        val navigation = flow.navigation as? SelectableNavigationEtaProvider
             ?: return list("ETA 설정", listOf(row("Mock", "실제 연결 공급자가 없습니다.")))
         return list("ETA 연결 설정", listOf(
-            row("ETA 모드", "${navigation.mode} · ${navigation.statusLabel}", parked = true) {
+            row("ETA 모드", "${navigation.source.label} · ${navigation.statusLabel}", parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle)
-                navigation.setMode(if (navigation.mode == EtaMode.MOCK) EtaMode.REAL else EtaMode.MOCK)
+                val sources = if (navigation.hasNavigation) EtaSource.entries else listOf(EtaSource.MOCK, EtaSource.TMAP)
+                navigation.setSource(sources[(sources.indexOf(navigation.source) + 1) % sources.size])
             },
-            row("위치 권한 허용", "Real 모드에서 현재 위치를 프록시와 TMAP에 전송합니다.", parked = true) {
+            row("위치 권한 허용", "TMAP 모드에서 현재 위치를 프록시와 TMAP에 전송합니다.", parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle)
                 carContext.requestPermissions(listOf(android.Manifest.permission.ACCESS_FINE_LOCATION,
-                    android.Manifest.permission.ACCESS_COARSE_LOCATION)) { _, _ -> navigation.refresh(); invalidate() }
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION)) { _, _ -> navigation.refreshTmap(); invalidate() }
             },
             row("ETA 새로고침", "30초 호출 간격 · 실패 시 Mock 자동 대체 없음", parked = true) {
-                InteractionPolicy.requireParked(flow.vehicle); navigation.refresh()
+                InteractionPolicy.requireParked(flow.vehicle); navigation.refreshTmap()
             },
-            row("연동 범위", "실제 경로 계산 + 가상 매장 테스트 좌표. 주문·결제·차량은 데모입니다.")
+            row("연동 범위", "TMAP은 가상 매장 경로를 계산합니다. 내비 ETA는 Navigation 앱의 현재 목적지 기준입니다.")
         ))
     }
 }
