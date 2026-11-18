@@ -101,11 +101,103 @@ abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowCont
 class HomeScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
     override fun onGetTemplate(): Template = list("Pleos DriveFlow", listOf(
         row("매장 찾기", "드라이브스루 매장 3곳 (가상)") { screenManager.push(StoreScreen(carContext, flow)) },
+        row("명령", "예시 또는 텍스트로 주문 · 정차 전용", parked = true) {
+            InteractionPolicy.requireParked(flow.vehicle)
+            screenManager.push(VoiceCommandScreen(carContext, flow))
+        },
+        flow.lastCompleted()?.let { last ->
+            val store = flow.stores.stores().firstOrNull { it.id == last.storeId }
+            val summary = store?.let { s -> last.lines.joinToString { (id, count) ->
+                "${s.menu.firstOrNull { it.id == id }?.name ?: id} ${count}잔" } } ?: "매장 확인 필요"
+            row("지난 주문 다시", "${store?.name ?: last.storeId} $summary", parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
+                flow.applyCommand(ParsedCommand.Reorder(last))
+                flow.announce("지난 주문을 다시 확인해 주세요")
+                screenManager.push(ConfirmationScreen(carContext, flow))
+            }
+        },
         row("내 주문 확인", flow.scheduledOrders?.current?.takeUnless { it.status.terminal }?.let { "데모 전달 · ${it.status.label}" } ?: flow.orders.latest()?.let { "${it.id} · ${it.status.label}" } ?: "주문 내역 없음") {
             screenManager.push(OrderStatusScreen(carContext, flow))
         },
         row("서비스 상태", mockBadge(), parked = true) { screenManager.push(DemoSettingsScreen(carContext, flow)) }
-    ), root = true)
+    ).filterNotNull(), root = true)
+}
+
+class VoiceCommandScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    private fun submit(text: String) {
+        InteractionPolicy.requireParked(flow.vehicle)
+        val store = flow.selectedStore ?: flow.stores.stores().first { it.acceptingOrders }
+        val parsed = VoiceCommandParser.parse(text, store.menu, flow.lastCompleted(), store.preparationMinutes)
+        screenManager.push(CommandResultScreen(carContext, flow, parsed))
+    }
+
+    override fun onGetTemplate(): Template = list("명령", listOf(
+        row("도착 기준 예약", "도착 10분 전에 아메리카노 준비해 줘", parked = true) {
+            submit("도착 10분 전에 아메리카노 준비해 줘")
+        },
+        row("즉시 주문", "카페라떼 두 잔 지금 주문해 줘", parked = true) {
+            submit("카페라떼 두 잔 지금 주문해 줘")
+        },
+        row("재주문", "지난번이랑 똑같이 주문해 줘", parked = true) {
+            submit("지난번이랑 똑같이 주문해 줘")
+        },
+        row("텍스트 명령 입력", "정차 중 키보드로 입력", parked = true) {
+            screenManager.push(CommandSearchScreen(carContext, flow))
+        }
+    ))
+}
+
+class CommandSearchScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template = SearchTemplate.Builder(object : SearchTemplate.SearchCallback {
+        override fun onSearchSubmitted(searchText: String) {
+            runAction {
+                InteractionPolicy.requireParked(flow.vehicle)
+                val store = flow.selectedStore ?: flow.stores.stores().first { it.acceptingOrders }
+                val parsed = VoiceCommandParser.parse(searchText, store.menu, flow.lastCompleted(), store.preparationMinutes)
+                screenManager.push(CommandResultScreen(carContext, flow, parsed))
+            }
+        }
+    }).setHeaderAction(Action.BACK).setSearchHint("주문 명령 입력").build()
+}
+
+class CommandResultScreen(context: CarContext, flow: DriveFlowController,
+    private val command: ParsedCommand) : FlowScreen(context, flow) {
+    private val summary = when (command) {
+        is ParsedCommand.Scheduled -> "${command.item.name} ${command.quantity}잔 · 도착 ${command.minutesBeforeArrival}분 전 전달"
+        is ParsedCommand.Immediate -> "${command.item.name} ${command.quantity}잔 · 지금 주문"
+        is ParsedCommand.Reorder -> {
+            val store = flow.stores.stores().firstOrNull { it.id == command.previous.storeId }
+            val items = command.previous.lines.joinToString { (id, count) ->
+                "${store?.menu?.firstOrNull { it.id == id }?.name ?: id} ${count}잔" }
+            "${store?.name ?: command.previous.storeId} · $items 다시 주문"
+        }
+        ParsedCommand.Cancel -> "진행 중인 예약 또는 주문 취소"
+        is ParsedCommand.Unknown -> command.reason
+    }
+    init { flow.announce(if (command is ParsedCommand.Unknown) summary else "$summary, 확인하시겠습니까?") }
+
+    override fun onGetTemplate(): Template = pane("명령 확인", listOf(
+        row("해석 결과", summary),
+        row("안내", (command as? ParsedCommand.Scheduled)?.warning ?: "확인 전에는 주문하지 않습니다"),
+        row("차량 상태", mockBadge())
+    ), if (command is ParsedCommand.Unknown) emptyList() else listOf(action("확인하고 실행", parked = true) {
+        InteractionPolicy.requireParked(flow.vehicle)
+        flow.applyCommand(command)
+        when (command) {
+            is ParsedCommand.Scheduled -> {
+                flow.reserveDispatch(command.minutesBeforeArrival)
+                flow.announce("${command.item.name} ${command.quantity}잔 예약했습니다")
+                screenManager.popToRoot()
+            }
+            is ParsedCommand.Immediate, is ParsedCommand.Reorder -> {
+                val order = flow.checkout()
+                flow.announce("모의 주문이 접수됐습니다")
+                screenManager.push(ReceiptScreen(carContext, flow, order.id))
+            }
+            ParsedCommand.Cancel -> { flow.announce("취소했습니다"); screenManager.popToRoot() }
+            is ParsedCommand.Unknown -> Unit
+        }
+    }))
 }
 
 class StoreScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
@@ -131,7 +223,7 @@ class MenuScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(co
                 0 -> "선택 안 함"
                 1 -> "1개"
                 2 -> "2개"
-                else -> "3개"
+                else -> "${qty}개"
             }
             row(item.name, "${formatWon(item.priceWon)}원 · $qtyText", parked = true) {
                 flow.setQuantity(item, (qty + 1) % 4)
