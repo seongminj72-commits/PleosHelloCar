@@ -28,8 +28,10 @@ object VoiceCommandParser {
         if (matches.size != 1) return ParsedCommand.Unknown("메뉴를 하나만 지정해 주세요")
         val item = matches.single()
         val withoutItem = compact.replace(normalize(item.name), "")
-        val count = Regex("([1-9]|하나|한|둘|두|셋|세|넷|네)(잔|개)").find(withoutItem)
-            ?.groupValues?.get(1)?.let { it.toIntOrNull() ?: quantities[it] } ?: 1
+        val amountTokens = Regex("([0-9]+|하나|한|둘|두|셋|세|넷|네)(잔|개)").findAll(withoutItem).toList()
+        if (amountTokens.size > 1) return ParsedCommand.Unknown("수량을 하나만 지정해 주세요")
+        val count = amountTokens.singleOrNull()?.groupValues?.get(1)?.let { it.toIntOrNull() ?: quantities[it] } ?: 1
+        if (count !in 1..9) return ParsedCommand.Unknown("수량은 1~9잔으로 지정해 주세요")
         if (compact.contains("도착")) {
             val lead = Regex("도착([0-9]+)분전").find(compact)?.groupValues?.get(1)?.toIntOrNull()
                 ?: return ParsedCommand.Unknown("도착 몇 분 전인지 알려 주세요")

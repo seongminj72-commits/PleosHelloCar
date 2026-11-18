@@ -57,6 +57,9 @@ class DriveFlowController(
             is ParsedCommand.Reorder -> {
                 val store = stores.stores().singleOrNull { it.id == command.previous.storeId }
                     ?: error("지난 주문의 매장을 찾을 수 없습니다")
+                check(command.previous.lines.isNotEmpty() && command.previous.lines.all { (id, count) ->
+                    count in 1..9 && store.menu.any { it.id == id }
+                }) { "지난 주문의 메뉴를 현재 매장에서 찾을 수 없습니다" }
                 selectStore(store)
                 setLines(command.previous.lines)
             }

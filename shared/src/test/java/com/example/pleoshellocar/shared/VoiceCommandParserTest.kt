@@ -30,5 +30,7 @@ class VoiceCommandParserTest {
         assertTrue(VoiceCommandParser.parse("없는 메뉴 지금", menu, null) is ParsedCommand.Unknown)
         assertTrue(VoiceCommandParser.parse("", menu, null) is ParsedCommand.Unknown)
         assertTrue(VoiceCommandParser.parse("아메리카노 카페라떼 지금", menu, null) is ParsedCommand.Unknown)
+        assertTrue(VoiceCommandParser.parse("아메리카노 10잔 지금 주문해 줘", menu, null) is ParsedCommand.Unknown)
+        assertTrue(VoiceCommandParser.parse("아메리카노 한 잔 두 잔 지금 주문해 줘", menu, null) is ParsedCommand.Unknown)
     }
 }
