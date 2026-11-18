@@ -10,6 +10,12 @@ interface OrderRepository {
 /** Session-memory demo repository. Requests are idempotent; only one active order is allowed. */
 class MockOrderRepository : OrderRepository {
     private val orders = linkedMapOf<String, Order>()
+    var dispatchOffline = false
+    fun dispatch(requestId: String, store: Store, lines: List<OrderLine>): Order {
+        check(!dispatchOffline) { "데모 매장 통신 단절" }
+        val order = create(requestId, store, lines)
+        return if (order.status == OrderStatus.ORDER_CREATED) transition(order.id, OrderStatus.PAYMENT_SIMULATED) else order
+    }
     override fun latest() = orders.values.lastOrNull()
     @Synchronized override fun create(requestId: String, store: Store, lines: List<OrderLine>): Order {
         require(requestId.isNotBlank())

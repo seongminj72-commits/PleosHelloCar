@@ -10,7 +10,9 @@ import androidx.car.app.Session
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.example.pleoshellocar.shared.car.HomeScreen
+import com.example.pleoshellocar.shared.domain.DispatchEta
 import com.example.pleoshellocar.shared.domain.DriveFlowController
+import com.example.pleoshellocar.shared.data.MockOrderRepository
 import com.example.pleoshellocar.shared.vehicle.SwitchableVehicleStateProvider
 import com.example.pleoshellocar.shared.vehicle.VehicleSignalFactory
 import com.example.pleoshellocar.shared.navigation.*
@@ -28,7 +30,21 @@ class MyCarAppSession(
         )
         val real = vehicleFactory?.createVehicleSignal(carContext)
         val vehicle = SwitchableVehicleStateProvider(real = real)
-        val flow = DriveFlowController(vehicle, navigation, MockPaymentSimulator())
+        val scheduled = navigationFactory?.scheduledOrders
+        scheduled?.current?.takeUnless { it.status.terminal }?.let { navigation.setSource(it.source) }
+        val flow = DriveFlowController(vehicle, navigation, MockPaymentSimulator(),
+            orders = scheduled?.orders ?: MockOrderRepository(),
+            scheduledOrders = scheduled,
+            dispatchEta = { now ->
+                when (navigation.source) {
+                    EtaSource.NAVIGATION -> navigationFactory?.currentNavigationEta(now)
+                    EtaSource.MOCK -> navigation.mock.minutes?.let { DispatchEta(it, now) }
+                    EtaSource.TMAP -> null
+                }
+            },
+            clock = SystemClock::elapsedRealtime,
+            startDispatch = { navigationFactory?.startScheduledDispatch() }
+        )
         val handler = Handler(Looper.getMainLooper())
         val tick = object : Runnable {
             override fun run() { navigation.refreshTmap(); handler.postDelayed(this, 5_000) }

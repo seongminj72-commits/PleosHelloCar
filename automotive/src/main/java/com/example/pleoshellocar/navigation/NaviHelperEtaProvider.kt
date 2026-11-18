@@ -11,6 +11,7 @@ import ai.pleos.playground.navi.data.RouteInfo
 import ai.pleos.playground.navi.data.RouteStartInfo
 import ai.pleos.playground.navi.helper.NaviHelper
 import ai.pleos.playground.navi.helper.listener.NaviHelperEventListener
+import com.example.pleoshellocar.shared.domain.DispatchEta
 import com.example.pleoshellocar.shared.navigation.GeoPoint
 import com.example.pleoshellocar.shared.navigation.LifecycleNavigationEtaProvider
 
@@ -20,7 +21,10 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
     private val main = Handler(Looper.getMainLooper())
     private val listeners = linkedSetOf<() -> Unit>()
     private var connection: Connection? = null
+    private var sessionActive = false
+    private var dispatchActive = false
     private var reading: Reading? = null
+    private var dispatchReading: Reading? = null
     private var store: StoreDestination? = null
     private var state = "연결 대기"
 
@@ -53,12 +57,13 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
         checkNotNull(connection) { "내비 연결이 필요합니다." }.requestRoute(target)
     }
 
-    private val expiry = Runnable { update("ETA 유효시간 만료") }
+    private val expiry = Runnable { update("ETA 유효시간 만료", preserveDispatchReading = true) }
 
-    private fun update(message: String, value: Reading? = null) {
+    private fun update(message: String, value: Reading? = null, preserveDispatchReading: Boolean = false) {
         val oldSeconds = reading?.seconds
         val oldState = state
         reading = value
+        if (!preserveDispatchReading) dispatchReading = value
         state = message
         main.removeCallbacks(expiry)
         if (value != null) main.postDelayed(expiry, ETA_EXPIRY_MS)
@@ -68,6 +73,21 @@ class NaviHelperEtaProvider(context: Context) : LifecycleNavigationEtaProvider {
     }
 
     override fun setActive(active: Boolean) {
+        sessionActive = active
+        updateConnection()
+    }
+
+    fun setDispatchActive(active: Boolean) {
+        dispatchActive = active
+        updateConnection()
+    }
+
+    fun dispatchEta(@Suppress("UNUSED_PARAMETER") now: Long): DispatchEta? = dispatchReading?.let {
+        etaMinutes(it.seconds)?.let { minutes -> DispatchEta(minutes, it.receivedAt, it.seconds.toLong()) }
+    }
+
+    private fun updateConnection() {
+        val active = sessionActive || dispatchActive
         if (active == (connection != null)) return
         if (active) {
             update("연결 중")

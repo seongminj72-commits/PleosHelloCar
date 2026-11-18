@@ -20,8 +20,8 @@ abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowCont
     private val etaChanged: () -> Unit = { invalidate() }
     private val vehicleChanged: () -> Unit = { invalidate() }
     init { lifecycle.addObserver(object : DefaultLifecycleObserver {
-        override fun onStart(owner: LifecycleOwner) { flow.navigation.addListener(etaChanged); flow.vehicle.addListener(vehicleChanged) }
-        override fun onStop(owner: LifecycleOwner) { flow.navigation.removeListener(etaChanged); flow.vehicle.removeListener(vehicleChanged) }
+        override fun onStart(owner: LifecycleOwner) { flow.navigation.addListener(etaChanged); flow.vehicle.addListener(vehicleChanged); flow.scheduledOrders?.addListener(etaChanged) }
+        override fun onStop(owner: LifecycleOwner) { flow.navigation.removeListener(etaChanged); flow.vehicle.removeListener(vehicleChanged); flow.scheduledOrders?.removeListener(etaChanged) }
         override fun onResume(owner: LifecycleOwner) { invalidate() }
     }) }
 
@@ -101,7 +101,7 @@ abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowCont
 class HomeScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
     override fun onGetTemplate(): Template = list("Pleos DriveFlow", listOf(
         row("매장 찾기", "드라이브스루 매장 3곳 (가상)") { screenManager.push(StoreScreen(carContext, flow)) },
-        row("내 주문 확인", flow.orders.latest()?.let { "${it.id} · ${it.status.label}" } ?: "주문 내역 없음") {
+        row("내 주문 확인", flow.scheduledOrders?.current?.takeUnless { it.status.terminal }?.let { "데모 전달 · ${it.status.label}" } ?: flow.orders.latest()?.let { "${it.id} · ${it.status.label}" } ?: "주문 내역 없음") {
             screenManager.push(OrderStatusScreen(carContext, flow))
         },
         row("서비스 상태", mockBadge(), parked = true) { screenManager.push(DemoSettingsScreen(carContext, flow)) }
@@ -192,7 +192,10 @@ class ConfirmationScreen(context: CarContext, flow: DriveFlowController) : FlowS
                 val order = flow.checkout()
                 screenManager.push(ReceiptScreen(carContext, flow, order.id))
             },
-            action("메뉴로 돌아가기", parked = true) { screenManager.pop() }
+            if (flow.scheduledOrders != null) action("도착에 맞춰 자동 전달", parked = true) {
+                flow.reserveDispatch()
+                screenManager.popToRoot()
+            } else action("메뉴로 돌아가기", parked = true) { screenManager.pop() }
         )
 
         return pane("주문 확인", rows, actions)
@@ -216,16 +219,32 @@ class OrderStatusScreen(context: CarContext, flow: DriveFlowController) : FlowSc
         val orderInfo = order?.let { "${it.id} · ${it.store.name} · ${formatWon(it.totalWon)}원" } ?: "주문 내역 없음"
         val pickupStatus = order?.status?.label ?: "먼저 주문하세요"
 
-        val rows = listOf(
+        val scheduled = flow.scheduledOrders?.current
+        val rows = mutableListOf(
             row("주문 정보", orderInfo),
             row("픽업 상태", pickupStatus),
-            row("알림", "${flow.announcement} · [텍스트만, 음성 미지원]"),
+            row("알림", scheduled?.let { it.message + if (it.voiceFailed) " · 음성 안내 실패" else "" } ?: flow.announcement),
             row("진행 / 재시도", "정차 전용 · 실제 청구 없음", parked = true) {
                 if (flow.orders.latest()?.status == OrderStatus.ORDER_CREATED) flow.checkout() else flow.advance()
             },
-            row("주문 취소", "정차 전용 · 완료/취소된 주문은 변경 불가", parked = true) { flow.cancel() }
+            if (flow.reservationActive) row("취소", "예약 취소 · 데모 전달") { flow.scheduledOrders?.cancel() }
+            else row("취소", "주문 취소 · 정차 전용", parked = true) { flow.cancel() }
         )
 
+        if (flow.scheduledOrders != null) {
+            val eta = scheduled?.let { order ->
+                val remaining = remainingArrivalMinutes(order, android.os.SystemClock.elapsedRealtime())
+                if (order.source == EtaSource.MOCK) "Mock ETA 기준 · 도착까지 약 ${remaining}분"
+                else if (order.eta != null) "최근 ETA 기준 도착까지 약 ${remaining}분" else "최근 ETA 없음"
+            } ?: "최근 ETA 없음"
+            val whenToSend = if (scheduled?.status?.terminal == false) {
+                val minutes = ((scheduled.dispatchAt - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0) + 59_999) / 60_000
+                "예상 전달 약 ${minutes}분 후"
+            } else "대기 중인 예약 없음"
+            val demo = flow.scheduledOrders.demoEta.takeUnless { it == DispatchDemoEta.OFF }
+                ?.let { " · 시연 ETA" }.orEmpty()
+            rows.add(row("예약 상태", "데모 전달 · ${scheduled?.status?.label ?: "예약 없음"} · $whenToSend · $eta$demo"))
+        }
         return list("내 주문 현황", rows)
     }
 }
@@ -295,10 +314,11 @@ class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowSc
     override fun onGetTemplate(): Template {
         val navigation = flow.navigation as? SelectableNavigationEtaProvider
             ?: return list("ETA 설정", listOf(row("Mock", "실제 연결 공급자가 없습니다.")))
-        return list("ETA 연결 설정", listOf(
+        val rows = mutableListOf(
             row("ETA 모드", "${navigation.source.label} · ${navigation.statusLabel}", parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle)
                 val sources = if (navigation.hasNavigation) EtaSource.entries else listOf(EtaSource.MOCK, EtaSource.TMAP)
+                check(!flow.reservationActive) { "예약 중에는 ETA 소스를 변경할 수 없습니다." }
                 navigation.setSource(sources[(sources.indexOf(navigation.source) + 1) % sources.size])
             },
             row("위치 권한 허용", "TMAP 모드에서 현재 위치를 프록시와 TMAP에 전송합니다.", parked = true) {
@@ -310,7 +330,22 @@ class EtaSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowSc
                 InteractionPolicy.requireParked(flow.vehicle); navigation.refreshTmap()
             },
             row("연동 범위", "TMAP은 가상 매장 경로를 계산합니다. 내비 ETA는 선택한 가상 매장과 일치하는 경로만 사용합니다.")
-        ))
+        )
+        val notificationPermission = android.Manifest.permission.POST_NOTIFICATIONS
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+            carContext.checkSelfPermission(notificationPermission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            rows.add(2, row("알림 권한 허용", "보조 알림용 · 거부해도 예약 전달은 계속됩니다", parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
+                carContext.requestPermissions(listOf(notificationPermission)) { _, _ -> invalidate() }
+            })
+        }
+        flow.scheduledOrders?.let { scheduled ->
+            rows.add(row("예약 전달 시연", "데모 ETA · 매장 통신 설정", parked = true) {
+                InteractionPolicy.requireParked(flow.vehicle)
+                screenManager.push(DispatchDemoScreen(carContext, flow, scheduled))
+            })
+        }
+        return list("ETA 연결 설정", rows)
     }
 }
 
@@ -331,4 +366,23 @@ class VehicleModeScreen(context: CarContext, flow: DriveFlowController) : FlowSc
         )
         return list("차량 상태 모드", rows)
     }
+}
+
+class DispatchDemoScreen(
+    context: CarContext,
+    flow: DriveFlowController,
+    private val scheduled: ScheduledOrderRepository
+) : FlowScreen(context, flow) {
+    override fun onGetTemplate(): Template = list("예약 전달 시연", listOf(
+        row("데모 ETA", scheduled.demoEta.label, parked = true) {
+            InteractionPolicy.requireParked(flow.vehicle)
+            check(!flow.reservationActive) { "예약이 종료된 뒤 데모 ETA를 변경하세요." }
+            val modes = DispatchDemoEta.entries
+            scheduled.demoEta = modes[(scheduled.demoEta.ordinal + 1) % modes.size]
+        },
+        row("매장 통신 단절", if (scheduled.orders.dispatchOffline) "단절 · 탭하여 복구" else "정상 · 탭하여 단절", parked = true) {
+            InteractionPolicy.requireParked(flow.vehicle)
+            scheduled.orders.dispatchOffline = !scheduled.orders.dispatchOffline
+        }
+    ))
 }
