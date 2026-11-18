@@ -60,6 +60,12 @@ class DriveFlowTest {
         c.setQuantity(menu[0],9); assertEquals(9, c.quantity(menu[0].id))
         rejected { c.setQuantity(menu[0],10) }; rejected { c.setQuantity(menu[0],-1) }
     }
+    @Test fun commandReplacesExistingCart() {
+        val c = controller(); val menu = c.selectedStore!!.menu
+        c.setQuantity(menu[1], 3)
+        c.applyCommand(ParsedCommand.Immediate(menu[0], 2))
+        assertEquals(listOf(OrderLine(menu[0], 2)), c.lines())
+    }
     @Test fun paymentFailureAndRetryUseSameOrder() {
         val c=controller(); (c.payment as MockPaymentSimulator).failNext=true
         rejected { c.checkout() }; val id=c.orders.latest()!!.id

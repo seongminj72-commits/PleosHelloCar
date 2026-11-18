@@ -74,11 +74,17 @@ class DriveFlowController(
     private fun setLines(lines: List<Pair<String, Int>>) {
         val store = checkNotNull(selectedStore)
         check(lines.isNotEmpty()) { "지난 주문의 메뉴가 없습니다" }
-        lines.forEach { (id, count) ->
+        requireNoReservation()
+        check(orders.latest()?.terminal != false) { "진행 중인 주문은 변경할 수 없습니다." }
+        val resolved = lines.map { (id, count) ->
             val item = store.menu.singleOrNull { it.id == id }
                 ?: error("지난 주문의 메뉴를 현재 매장에서 찾을 수 없습니다")
-            setQuantity(item, count)
+            require(count in 1..9) { "수량은 1~9개여야 합니다." }
+            item to count
         }
+        require(resolved.map { it.first.id }.distinct().size == resolved.size)
+        quantities.clear()
+        resolved.forEach { (item, count) -> setQuantity(item, count) }
     }
     fun announce(message: String) {
         announcement = message
