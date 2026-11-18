@@ -62,7 +62,7 @@ class DriveFlowController(
         check(!reservationActive) { "내 주문에서 전달 예약을 확인하세요." }
     }
 
-    fun reserveDispatch() {
+    fun reserveDispatch(customLeadMinutes: Int? = null) {
         InteractionPolicy.requireParked(vehicle)
         val repository = checkNotNull(scheduledOrders) { "자동 전달을 사용할 수 없습니다." }
         val source = (navigation as? SelectableNavigationEtaProvider)?.source ?: EtaSource.MOCK
@@ -72,7 +72,9 @@ class DriveFlowController(
         val store = checkNotNull(selectedStore) { "매장을 선택하세요." }
         val items = lines()
         check(items.isNotEmpty()) { "메뉴를 선택하세요." }
-        repository.reserve(ScheduledOrder(requestId, store, items, preparationEstimate(), source, now, eta.arrivalAt, eta))
+        require(customLeadMinutes == null || customLeadMinutes in 1..180)
+        repository.reserve(ScheduledOrder(requestId, store, items, preparationEstimate(), source, now, eta.arrivalAt, eta,
+            customLeadMinutes = customLeadMinutes))
         try {
             startDispatch()
         } catch (_: RuntimeException) {

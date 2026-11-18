@@ -28,10 +28,11 @@ data class ScheduledOrder(
     val failures: Int = 0,
     val heldNoticeSent: Boolean = false,
     val message: String = "데모 전달 예약됨",
-    val voiceFailed: Boolean = false
+    val voiceFailed: Boolean = false,
+    val customLeadMinutes: Int? = null
 ) {
     val serviceDeadline get() = minOf(arrivalAt + 600_000L, createdAt + 10_800_000L)
-    val dispatchAt get() = arrivalAt - (preparation.totalMinutes + 1) * 60_000L
+    val dispatchAt get() = arrivalAt - (customLeadMinutes ?: (preparation.totalMinutes + 1)) * 60_000L
 }
 
 internal enum class DispatchDecision { WAIT, HOLD, SEND, FAIL }

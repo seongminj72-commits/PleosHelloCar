@@ -28,6 +28,15 @@ class ScheduledDispatchTest {
         assertEquals(DispatchDecision.WAIT, decideDispatch(reservation(DispatchEta(8, 0)), 0))
     }
 
+    @Test fun customLeadUsesArrivalTimeWithoutChangingDefault() {
+        val original = reservation(DispatchEta(20, 0), EtaSource.MOCK)
+        val custom = original.copy(customLeadMinutes = 10)
+        assertEquals(780_000L, original.dispatchAt)
+        assertEquals(600_000L, custom.dispatchAt)
+        assertEquals(DispatchDecision.WAIT, decideDispatch(custom, 599_999))
+        assertEquals(DispatchDecision.SEND, decideDispatch(custom, 600_000))
+    }
+
     @Test fun mockReservationUsesTheSameClockReadingForEtaReceipt() {
         var elapsed = 10_000L
         val repository = ScheduledOrderRepository()
