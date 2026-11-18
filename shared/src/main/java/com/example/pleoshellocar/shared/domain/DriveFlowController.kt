@@ -15,7 +15,9 @@ class DriveFlowController(
     val scheduledOrders: ScheduledOrderRepository? = null,
     private val dispatchEta: (now: Long) -> DispatchEta? = { null },
     private val clock: () -> Long = { 0L },
-    private val startDispatch: () -> Unit = {}
+    private val startDispatch: () -> Unit = {},
+    val completedOrders: CompletedOrderStore? = null,
+    private val announcer: VoiceAnnouncer? = null
 ) {
     var selectedStore: Store? = null; private set
     private val quantities = linkedMapOf<String, Int>()
@@ -38,7 +40,7 @@ class DriveFlowController(
     fun setQuantity(item: MenuItem, quantity: Int) {
         InteractionPolicy.requireParked(vehicle)
         check(orders.latest()?.terminal != false) { "진행 중인 주문은 변경할 수 없습니다." }
-        require(quantity in 0..3)
+        require(quantity in 0..9)
         require(selectedStore?.menu?.contains(item) == true)
         quantities[item.id] = quantity; requestId = UUID.randomUUID().toString()
     }
@@ -46,6 +48,39 @@ class DriveFlowController(
         quantity(it.id).takeIf { n -> n > 0 }?.let { n -> OrderLine(it, n) }
     }
     fun totalWon() = lines().sumOf { it.totalWon }
+    fun lastCompleted() = completedOrders?.last()
+    fun applyCommand(command: ParsedCommand) {
+        InteractionPolicy.requireParked(vehicle)
+        when (command) {
+            is ParsedCommand.Scheduled -> selectLinesForCommand(listOf(command.item.id to command.quantity))
+            is ParsedCommand.Immediate -> selectLinesForCommand(listOf(command.item.id to command.quantity))
+            is ParsedCommand.Reorder -> {
+                val store = stores.stores().singleOrNull { it.id == command.previous.storeId }
+                    ?: error("지난 주문의 매장을 찾을 수 없습니다")
+                selectStore(store)
+                setLines(command.previous.lines)
+            }
+            ParsedCommand.Cancel -> if (reservationActive) scheduledOrders?.cancel() else cancel()
+            is ParsedCommand.Unknown -> error(command.reason)
+        }
+    }
+    private fun selectLinesForCommand(lines: List<Pair<String, Int>>) {
+        if (selectedStore == null) selectStore(stores.stores().first { it.acceptingOrders })
+        setLines(lines)
+    }
+    private fun setLines(lines: List<Pair<String, Int>>) {
+        val store = checkNotNull(selectedStore)
+        check(lines.isNotEmpty()) { "지난 주문의 메뉴가 없습니다" }
+        lines.forEach { (id, count) ->
+            val item = store.menu.singleOrNull { it.id == id }
+                ?: error("지난 주문의 메뉴를 현재 매장에서 찾을 수 없습니다")
+            setQuantity(item, count)
+        }
+    }
+    fun announce(message: String) {
+        announcement = message
+        announcer?.speak(message) { announcement = "$message · 음성 안내 실패" }
+    }
     /** 매장 기본값 + 장바구니(메뉴·수량) 반영 준비시간. 데모 설정의 덮어쓰기 값이 있으면 그 값을 그대로 쓴다. */
     fun preparationEstimate(): PreparationEstimate = preparationOverride?.let { PreparationEstimate(it, 0, 0) }
         ?: PreparationEstimate.of(selectedStore?.preparationMinutes ?: 6, lines())
@@ -110,7 +145,7 @@ class DriveFlowController(
             OrderStatus.READY_FOR_PICKUP -> "픽업 준비가 완료되었습니다."
             else -> "픽업이 완료되었습니다."
         }
-        return orders.transition(order.id, next)
+        return orders.transition(order.id, next).also { if (next == OrderStatus.COMPLETED) completedOrders?.save(it) }
     }
     fun cancel(): Order {
         InteractionPolicy.requireParked(vehicle)
