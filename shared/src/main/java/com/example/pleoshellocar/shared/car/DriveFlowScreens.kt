@@ -40,11 +40,15 @@ abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowCont
         title: String,
         text: String,
         parked: Boolean = false,
+        icon: CarIcon? = null,
         click: (() -> Unit)? = null
     ): Row {
         val builder = Row.Builder()
             .setTitle(title)
             .addText(text)
+        if (icon != null) {
+            builder.setImage(icon)
+        }
         if (click != null) {
             val listener = OnClickListener { runAction(click) }
             builder.setOnClickListener(if (parked) ParkedOnlyOnClickListener.create(listener) else listener)
@@ -53,10 +57,14 @@ abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowCont
     }
 
     /** 액션 버튼 생성 - 주행 중 비활성화 지원 */
-    protected fun action(title: String, parked: Boolean = false, click: () -> Unit): Action {
+    protected fun action(title: String, parked: Boolean = false, icon: CarIcon? = null, click: () -> Unit): Action {
         val listener = OnClickListener { runAction(click) }
-        return Action.Builder().setTitle(title)
-            .setOnClickListener(if (parked) ParkedOnlyOnClickListener.create(listener) else listener).build()
+        val builder = Action.Builder().setTitle(title)
+            .setOnClickListener(if (parked) ParkedOnlyOnClickListener.create(listener) else listener)
+        if (icon != null) {
+            builder.setIcon(icon)
+        }
+        return builder.build()
     }
 
     /** 숫자 포맷: 3자리마다 콤마 */
