@@ -59,6 +59,7 @@ dependencies {
     implementation(project(":shared"))
     implementation("ai.pleos.playground:NaviHelper:3.0.5")
     implementation("ai.pleos.playground:TextToSpeech:3.3.1")
+    implementation("ai.pleos.playground:SpeechToText:3.3.1")
     implementation("com.google.code.findbugs:jsr305:3.0.2")
     implementation(libs.androidx.app.automotive)
     implementation(libs.androidx.appcompat)

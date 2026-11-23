@@ -20,6 +20,23 @@ class VoiceCommandParserTest {
             VoiceCommandParser.parse("카페 라테 두 잔 지금 주문해 줘", menu, null))
         assertEquals(ParsedCommand.Immediate(menu[0], 9),
             VoiceCommandParser.parse("아메리카노 9잔 지금 주문해 줘", menu, null))
+        assertEquals(ParsedCommand.Immediate(menu[0], 1),
+            VoiceCommandParser.parse("아메리카노 1잔 주문 주문해줘", menu, null))
+        assertEquals(ParsedCommand.Immediate(menu[1], 2),
+            VoiceCommandParser.parse("카페라떼 2잔 지금", menu, null))
+        assertTrue(VoiceCommandParser.parse("아메리카노 한잔", menu, null) is ParsedCommand.Unknown)
+    }
+
+    @Test fun spokenArrivalMinutes() {
+        assertEquals(ParsedCommand.Scheduled(menu[1], 2, 20),
+            VoiceCommandParser.parse("도착 이십 분 전에 카페라떼 두 잔 준비해 줘", menu, null))
+        assertEquals(ParsedCommand.Scheduled(menu[0], 1, 10),
+            VoiceCommandParser.parse("도착 10분 전에 아메리카노 준비해줘", menu, null))
+        assertEquals(ParsedCommand.Scheduled(menu[0], 1, 10),
+            VoiceCommandParser.parse("도착 십 분 전에 아메리카노 준비해줘", menu, null))
+        assertEquals(ParsedCommand.Scheduled(menu[0], 1, 99),
+            VoiceCommandParser.parse("도착 구십구 분 전에 아메리카노 준비해줘", menu, null))
+        assertTrue(VoiceCommandParser.parse("도착 백 분 전에 아메리카노 준비해줘", menu, null) is ParsedCommand.Unknown)
     }
 
     @Test fun reorderCancelAndUnknown() {

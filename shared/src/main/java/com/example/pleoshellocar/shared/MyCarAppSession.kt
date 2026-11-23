@@ -45,7 +45,8 @@ class MyCarAppSession(
             clock = SystemClock::elapsedRealtime,
             startDispatch = { navigationFactory?.startScheduledDispatch() },
             completedOrders = navigationFactory?.completedOrders,
-            announcer = navigationFactory?.voiceAnnouncer
+            announcer = navigationFactory?.voiceAnnouncer,
+            speechInput = navigationFactory?.speechInput
         )
         val handler = Handler(Looper.getMainLooper())
         val tick = object : Runnable {

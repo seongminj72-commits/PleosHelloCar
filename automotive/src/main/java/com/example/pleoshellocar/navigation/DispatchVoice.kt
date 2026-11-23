@@ -16,6 +16,7 @@ import com.example.pleoshellocar.shared.domain.VoiceAnnouncer
 class DispatchVoice(private val context: Context) : VoiceAnnouncer {
     private val main = Handler(Looper.getMainLooper())
     private var current: Speech? = null
+    override val isSpeaking: Boolean get() = current != null
 
     override fun speak(message: String, onFailure: () -> Unit) {
         current?.close()
