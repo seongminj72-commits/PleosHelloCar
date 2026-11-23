@@ -6,6 +6,8 @@ import androidx.car.app.model.*
 import androidx.car.app.CarToast
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import android.os.Handler
+import android.os.Looper
 import com.example.pleoshellocar.shared.domain.*
 import com.example.pleoshellocar.shared.vehicle.*
 import com.example.pleoshellocar.shared.navigation.*
@@ -143,6 +145,101 @@ class VoiceCommandScreen(context: CarContext, flow: DriveFlowController) : FlowS
         },
         row("텍스트 명령 입력", "정차 중 키보드로 입력", parked = true) {
             screenManager.push(CommandSearchScreen(carContext, flow))
+        },
+        row("말로 명령하기", "정차 중 마이크로 주문 명령", parked = true) {
+            InteractionPolicy.requireParked(flow.vehicle)
+            if (flow.isAnnouncing) { toast("음성 안내가 끝난 뒤 다시 시도하세요"); return@row }
+            val input = flow.speechInput
+            if (input == null) { toast("음성 인식을 사용할 수 없습니다"); return@row }
+            if (carContext.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                screenManager.push(VoiceListenScreen(carContext, flow))
+            } else {
+                carContext.requestPermissions(listOf(android.Manifest.permission.RECORD_AUDIO)) { granted, _ ->
+                    runAction {
+                        InteractionPolicy.requireParked(flow.vehicle)
+                        if (android.Manifest.permission.RECORD_AUDIO in granted)
+                            screenManager.push(VoiceListenScreen(carContext, flow))
+                        else toast("마이크 권한이 필요합니다")
+                    }
+                }
+            }
+        }
+    ))
+}
+
+class VoiceListenScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
+    private val main = Handler(Looper.getMainLooper())
+    private var message = "마이크 연결 중"
+    private var partial = "말씀하세요"
+    private var listening = false
+    private var lastRenderAt = 0L
+    private var pending = false
+    private val timeout = Runnable { stopWith("10초 안에 인식된 문장이 없습니다") }
+    private val render = Runnable { pending = false; lastRenderAt = android.os.SystemClock.uptimeMillis(); invalidate() }
+    private val vehicleChanged: () -> Unit = {
+        if (listening && flow.vehicle.getVehicleState() != VehicleState.PARKED) stopWith("주행 상태로 음성 입력을 중단했습니다")
+    }
+    private val listener = object : SpeechInput.Listener {
+        override fun onState(message: String) { this@VoiceListenScreen.message = message; scheduleRender() }
+        override fun onPartial(text: String) { partial = text.ifBlank { "말씀하세요" }; scheduleRender() }
+        override fun onFinal(text: String) {
+            if (!listening || flow.vehicle.getVehicleState() != VehicleState.PARKED) return
+            finishListening()
+            val store = flow.selectedStore ?: flow.stores.stores().first { it.acceptingOrders }
+            val parsed = VoiceCommandParser.parse(text, store.menu, flow.lastCompleted(), store.preparationMinutes)
+            screenManager.push(CommandResultScreen(carContext, flow, parsed))
+        }
+        override fun onError(message: String) { if (listening) stopWith(message) }
+    }
+
+    init { lifecycle.addObserver(object : DefaultLifecycleObserver {
+        override fun onStart(owner: LifecycleOwner) {
+            if (listening) return
+            if (flow.vehicle.getVehicleState() != VehicleState.PARKED || flow.isAnnouncing) {
+                message = "정차 후 음성 안내가 끝나면 다시 시도하세요"; invalidate(); return
+            }
+            listening = true
+            flow.vehicle.addListener(vehicleChanged)
+            main.postDelayed(timeout, 10_000)
+            flow.speechInput?.listen(listener)
+        }
+        override fun onStop(owner: LifecycleOwner) { finishListening() }
+    }) }
+
+    private fun scheduleRender() {
+        if (!listening || pending) return
+        pending = true
+        main.postDelayed(render, maxOf(0L, 300L - (android.os.SystemClock.uptimeMillis() - lastRenderAt)))
+    }
+
+    private fun finishListening() {
+        listening = false
+        main.removeCallbacks(timeout)
+        main.removeCallbacks(render)
+        pending = false
+        flow.vehicle.removeListener(vehicleChanged)
+        flow.speechInput?.stop()
+    }
+
+    private fun stopWith(reason: String) {
+        finishListening()
+        message = reason
+        partial = "다시 듣기에서 재시도하세요"
+        invalidate()
+    }
+
+    override fun onGetTemplate(): Template = list("말로 명령하기", listOf(
+        row("음성 인식", message),
+        row("인식 문장", partial),
+        row("다시 듣기", "정차 중 재시도", parked = true) {
+            InteractionPolicy.requireParked(flow.vehicle)
+            if (flow.isAnnouncing) { toast("음성 안내가 끝난 뒤 다시 시도하세요"); return@row }
+            if (!listening) {
+                message = "마이크 연결 중"; partial = "말씀하세요"; listening = true
+                flow.vehicle.addListener(vehicleChanged)
+                main.postDelayed(timeout, 10_000)
+                flow.speechInput?.listen(listener)
+            }
         }
     ))
 }

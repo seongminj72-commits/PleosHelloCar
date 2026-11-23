@@ -4,7 +4,27 @@
 
 ## 0단계: STT 실인식 판정
 
-`claude/pleos-sdk-probe`에서 만든 별도 debug APK를 설치하고 `--ez navi false --ez tts false --es stt listen`으로 시작했다. Android 활성 사용자 10에서 `RECORD_AUDIO`와 `pleos.car.permission.STT_SERVICE` 허용을 확인했다. [프로브 로그](validation-voice-command/stt-probe-2026-11-18.log)에는 ON_DEVICE 초기화 성공, 리스너 등록, `request()`, `onReady()`가 있다. 한국어가 담긴 `onUpdated(…, completed=true)`는 관찰되지 않았다. 사용자는 마이크 발화 시험을 **미실행**이라고 답했다. 따라서 이번 통합 범위의 판정은 **NO-GO(인식 미검증)**이다. SDK 자체의 인식 실패로 단정하지 않는다. STT 입력 행은 추가하지 않았다.
+`claude/pleos-sdk-probe`에서 만든 별도 debug APK를 설치하고 `--ez navi false --ez tts false --es stt listen`으로 시작했다. Android 활성 사용자 10에서 `RECORD_AUDIO`와 `pleos.car.permission.STT_SERVICE` 허용을 확인했다. [11월 18일 프로브 로그](validation-voice-command/stt-probe-2026-11-18.log)에는 ON_DEVICE 초기화 성공, 리스너 등록, `request()`, `onReady()`가 있다. 당시 한국어 최종 결과가 없었던 이유는 호스트 마이크 입력이 연결되지 않았기 때문이다.
+
+2026-11-24 사용자가 에뮬레이터 Extended Controls → Microphone → Enable Host Microphone Access를 켜고 macOS 마이크 권한을 허용한 뒤 재시험했다. 사용자 보고에 따르면 `onReady → onUpdatedRms → onStartedRecognition → onUpdated(부분, false) 반복 → onEndedRecognition → onUpdated("아메리카노 1잔 주문 주문해줘", true) → onUpdatedEpdData` 순서로 콜백이 왔다. 엔진 EPD가 발화 종료를 자동 감지했다. 이 보고를 근거로 **GO(한국어 최종 인식 확인)**로 판정한다. 이 회차의 원본 로그는 아직 저장소에 없으므로 독립 재현은 release 실기 검증에서 수행한다.
+
+## 2026-11-24 STT 입력 연결
+
+`codex/stt-input`에서 ON_DEVICE SpeechToText 3.3.1을 앱 범위 한 인스턴스로 연결했다. 공식 가이드의 초기화 → 리스너 등록 → 요청 순서를 따른다. 사용한 메서드와 콜백 시그니처는 Gradle 캐시의 `SpeechToText-3.3.1.aar` 안 `ai.pleos.playground.stt.SpeechToText`, `ResultListener`, `OnInitializeListener` 클래스를 `javap`로 확인했다. 명령 화면의 “말로 명령하기”는 정차 중에만 열리고 `RECORD_AUDIO` 권한을 요청한다. 부분 결과는 300ms 이상 간격으로 표시하며, 10초 안에 최종 결과가 없거나 오류·주행 상태가 오면 인식을 멈추고 결과를 버린다. 최종 문장은 기존 명령 확인 화면을 거쳐서만 실행된다. TTS 재생 중에는 인식을 시작하지 않는다.
+
+명령 해석기는 시점이 없어도 `주문` 또는 `줘`가 있으면 즉시 주문으로 분류한다. `도착 N분 전`은 숫자 1~180분과 한글 한자어 1~99분(예: `십`, `이십`, `구십구`)을 지원한다. 범위 밖 한글 분 표현은 추정하지 않고 안내 문구와 함께 `Unknown`으로 처리한다.
+
+### STT 연결 검증 기록
+
+| 항목 | 결과 |
+|---|---|
+| 사용자 프로브 한국어 최종 결과 | 2026-11-24 사용자 보고로 확인. 원본 로그 미수령 |
+| `./gradlew test :automotive:assembleDebug` | 통과. JUnit XML: shared 104, automotive 10, mobile 1, 합계 115 |
+| `./gradlew :automotive:assembleRelease` | 서명 속성 없이 R8 빌드 통과. 산출물은 미서명 |
+| 서명 release 실기 발화 2종·무음·주행 중 중단 | 미실행. 사용자 서명 빌드 및 에뮬레이터 시험 대기 |
+| release logcat 크래시·OverLimitFlowViolation | 미실행. 위 실기 시험에서 확인 예정 |
+
+실기 시험은 Pleos Connect v2.1.0에서 호스트 마이크 접근과 macOS 마이크 권한을 켜고 진행한다. 각 화면 캡처는 `docs/validation-voice-command/`에 저장한다. 실제 인식 결과는 확인 화면의 내용을 검토한 후 정차 상태에서만 실행한다.
 
 ## 구현
 

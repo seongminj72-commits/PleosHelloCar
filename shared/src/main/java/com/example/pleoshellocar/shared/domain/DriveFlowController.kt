@@ -17,7 +17,8 @@ class DriveFlowController(
     private val clock: () -> Long = { 0L },
     private val startDispatch: () -> Unit = {},
     val completedOrders: CompletedOrderStore? = null,
-    private val announcer: VoiceAnnouncer? = null
+    private val announcer: VoiceAnnouncer? = null,
+    val speechInput: SpeechInput? = null
 ) {
     var selectedStore: Store? = null; private set
     private val quantities = linkedMapOf<String, Int>()
@@ -90,6 +91,7 @@ class DriveFlowController(
         announcement = message
         announcer?.speak(message) { announcement = "$message · 음성 안내 실패" }
     }
+    val isAnnouncing: Boolean get() = announcer?.isSpeaking == true
     /** 매장 기본값 + 장바구니(메뉴·수량) 반영 준비시간. 데모 설정의 덮어쓰기 값이 있으면 그 값을 그대로 쓴다. */
     fun preparationEstimate(): PreparationEstimate = preparationOverride?.let { PreparationEstimate(it, 0, 0) }
         ?: PreparationEstimate.of(selectedStore?.preparationMinutes ?: 6, lines())

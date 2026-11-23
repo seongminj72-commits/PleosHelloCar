@@ -33,15 +33,30 @@ object VoiceCommandParser {
         val count = amountTokens.singleOrNull()?.groupValues?.get(1)?.let { it.toIntOrNull() ?: quantities[it] } ?: 1
         if (count !in 1..9) return ParsedCommand.Unknown("수량은 1~9잔으로 지정해 주세요")
         if (compact.contains("도착")) {
-            val lead = Regex("도착([0-9]+)분전").find(compact)?.groupValues?.get(1)?.toIntOrNull()
+            val leadText = Regex("도착(.+?)분전").find(compact)?.groupValues?.get(1)
                 ?: return ParsedCommand.Unknown("도착 몇 분 전인지 알려 주세요")
+            val lead = leadText.toIntOrNull() ?: koreanMinutes(leadText)
+                ?: return ParsedCommand.Unknown("한글 분 숫자는 1~99분만 지원합니다")
             if (lead !in 1..180) return ParsedCommand.Unknown("전달 시점은 1~180분 전으로 지정하세요")
             val warning = if (lead < preparationMinutes + item.extraPreparationMinutes)
                 "도착까지 준비되지 않을 수 있습니다" else null
             return ParsedCommand.Scheduled(item, count, lead, warning)
         }
-        if (compact.contains("지금") || compact.contains("바로")) return ParsedCommand.Immediate(item, count)
+        if (listOf("지금", "바로", "주문", "줘").any(compact::contains))
+            return ParsedCommand.Immediate(item, count)
         return ParsedCommand.Unknown("주문 시점을 지정해 주세요")
+    }
+
+    /** Sino-Korean minute words from 일 to 구십구; larger words remain Unknown. */
+    private fun koreanMinutes(value: String): Int? {
+        val digits = mapOf('일' to 1, '이' to 2, '삼' to 3, '사' to 4, '오' to 5,
+            '육' to 6, '칠' to 7, '팔' to 8, '구' to 9)
+        if (value.length == 1) return digits[value.single()] ?: if (value == "십") 10 else null
+        val tensAt = value.indexOf('십')
+        if (tensAt !in 0..1 || value.lastIndex > tensAt + 1) return null
+        val tens = if (tensAt == 0) 1 else digits[value.first()] ?: return null
+        val ones = value.getOrNull(tensAt + 1)?.let { digits[it] ?: return null } ?: 0
+        return tens * 10 + ones
     }
 
     private fun normalize(value: String) = value.lowercase().replace("\\s+".toRegex(), "")

@@ -6,5 +6,6 @@ interface CompletedOrderStore {
 }
 
 interface VoiceAnnouncer {
+    val isSpeaking: Boolean get() = false
     fun speak(message: String, onFailure: () -> Unit = {})
 }
