@@ -10,13 +10,14 @@ import ai.pleos.playground.tts.constant.Mode
 import ai.pleos.playground.tts.listener.EventListener
 import ai.pleos.playground.tts.listener.OnInitializeListener
 import java.util.Locale
+import com.example.pleoshellocar.shared.domain.VoiceAnnouncer
 
 /** Owns playback until completion even if the terminal reservation stops its service. */
-class DispatchVoice(private val context: Context) {
+class DispatchVoice(private val context: Context) : VoiceAnnouncer {
     private val main = Handler(Looper.getMainLooper())
     private var current: Speech? = null
 
-    fun speak(message: String, onFailure: () -> Unit) {
+    override fun speak(message: String, onFailure: () -> Unit) {
         current?.close()
         current = null
         val speech = try {

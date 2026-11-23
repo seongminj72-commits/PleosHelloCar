@@ -60,7 +60,7 @@ class ScheduledDispatchService : Service() {
     private fun announce(message: String) {
         android.util.Log.i("ScheduledDispatch", message)
         val requestId = app.scheduledOrders.current?.requestId ?: return
-        app.dispatchVoice.speak(message) { app.scheduledOrders.voiceFailed(requestId) }
+        app.voiceAnnouncer.speak(message) { app.scheduledOrders.voiceFailed(requestId) }
         runCatching {
             val notice = NotificationCompat.Builder(this, CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)

@@ -1,0 +1,28 @@
+--------- beginning of main
+11-18 10:15:20.075 15711 15711 I DriveFlowProbe: === DriveFlow Pleos SDK probe start ===
+11-18 10:15:20.077 15711 15711 I DriveFlowProbe: [PERM] pleos.car.permission.NAVI_ROUTE granted=true (protection=0)
+11-18 10:15:20.078 15711 15711 I DriveFlowProbe: [PERM] pleos.car.permission.NAVI_ROUTE_SEARCH granted=true (protection=0)
+11-18 10:15:20.078 15711 15711 I DriveFlowProbe: [PERM] pleos.car.permission.TTS_SERVICE granted=true (protection=0)
+11-18 10:15:20.078 15711 15711 I DriveFlowProbe: [PERM] pleos.car.permission.STT_SERVICE granted=true (protection=0)
+11-18 10:15:20.078 15711 15711 I DriveFlowProbe: [PERM] android.permission.RECORD_AUDIO granted=true (protection=1)
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe: [STT] public methods:
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void addListener(ai.pleos.playground.stt.listener.ResultListener)
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void completeAudioSend()
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   AmbientAiApi getAmbientAi()
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   CallApi getCallApi()
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void initialize()
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void initialize(ai.pleos.playground.stt.listener.OnInitializeListener)
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void registerApp(java.lang.String, java.lang.String, ai.pleos.playground.stt.listener.OnServerConnectionListener)
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void registerApp(java.lang.String, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1)
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void registerApp(java.lang.String, java.lang.String, java.lang.String, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1)
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void release()
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void removeListener(ai.pleos.playground.stt.listener.ResultListener)
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void request()
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void sendAudio([B)
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void setLocale(java.util.Locale)
+11-18 10:15:20.084 15711 15711 I DriveFlowProbe:   void stop()
+11-18 10:15:20.182 15711 15711 I DriveFlowProbe: [STT] initialize onSuccess (mode=ON_DEVICE)
+11-18 10:15:20.192 15711 15711 I DriveFlowProbe: [STT-EVENT] listener type = ai.pleos.playground.stt.listener.ResultListener
+11-18 10:15:20.193 15711 15711 I DriveFlowProbe: [STT-EVENT] addListener ok
+11-18 10:15:20.195 15711 15711 I DriveFlowProbe: [STT] request() 호출. 지금 '아메리카노 한 잔 주문해 줘'라고 말하세요
+11-18 10:15:20.675 15711 15711 I DriveFlowProbe: [STT-EVENT] onReady() thread=main

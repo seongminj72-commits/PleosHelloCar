@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.core.content.ContextCompat
 import androidx.car.app.CarContext
 import com.example.pleoshellocar.navigation.DispatchVoice
+import com.example.pleoshellocar.navigation.PreferencesCompletedOrderStore
 import com.example.pleoshellocar.navigation.NaviHelperEtaProvider
 import com.example.pleoshellocar.navigation.ScheduledDispatchService
 import com.example.pleoshellocar.shared.domain.ScheduledOrderRepository
@@ -13,6 +14,8 @@ import com.example.pleoshellocar.shared.vehicle.VehicleSignalFactory
 
 class VehicleApplication : Application(), VehicleSignalFactory, NavigationEtaFactory {
     val dispatchVoice by lazy { DispatchVoice(this) }
+    override val voiceAnnouncer get() = dispatchVoice
+    override val completedOrders by lazy { PreferencesCompletedOrderStore(this) }
     val navigationEta by lazy { NaviHelperEtaProvider(this) }
     override val scheduledOrders = ScheduledOrderRepository()
 
