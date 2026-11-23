@@ -4,7 +4,7 @@
 
 ## 0단계: STT 실인식 판정
 
-`claude/pleos-sdk-probe`에서 만든 별도 debug APK를 설치하고 `--ez navi false --ez tts false --es stt listen`으로 시작했다. Android 활성 사용자 10에서 `RECORD_AUDIO`와 `pleos.car.permission.STT_SERVICE` 허용을 확인했다. [프로브 로그](validation-voice-command/stt-probe-2026-11-18.log)에는 ON_DEVICE 초기화 성공, 리스너 등록, `request()`, `onReady()`가 있다. 한국어가 담긴 `onUpdated(…, completed=true)`는 아직 관찰되지 않았다. 사용자에게 에뮬레이터 Extended controls의 호스트 마이크 입력과 발화를 요청했다. **판정 대기**이며 STT 입력 행은 추가하지 않았다. 확인되지 않은 SDK 기능을 지원한다고 표시하지 않는다.
+`claude/pleos-sdk-probe`에서 만든 별도 debug APK를 설치하고 `--ez navi false --ez tts false --es stt listen`으로 시작했다. Android 활성 사용자 10에서 `RECORD_AUDIO`와 `pleos.car.permission.STT_SERVICE` 허용을 확인했다. [프로브 로그](validation-voice-command/stt-probe-2026-11-18.log)에는 ON_DEVICE 초기화 성공, 리스너 등록, `request()`, `onReady()`가 있다. 한국어가 담긴 `onUpdated(…, completed=true)`는 관찰되지 않았다. 사용자는 마이크 발화 시험을 **미실행**이라고 답했다. 따라서 이번 통합 범위의 판정은 **NO-GO(인식 미검증)**이다. SDK 자체의 인식 실패로 단정하지 않는다. STT 입력 행은 추가하지 않았다.
 
 ## 구현
 
@@ -18,13 +18,15 @@
 
 ## 검증 상태
 
-`./gradlew test :automotive:assembleDebug :automotive:assembleRelease`의 JUnit XML 합계는 114개(shared 103, automotive 10, mobile 1), 실패·오류 0이다. Automotive debug APK 및 **미서명** release APK가 생성됐다. 서명 release APK의 수동 시연은 사용자 서명 빌드 뒤 진행한다.
+`./gradlew test :automotive:assembleDebug :automotive:assembleRelease`의 JUnit XML 합계는 114개(shared 103, automotive 10, mobile 1), 실패·오류 0이다. 사용자가 같은 브랜치의 release APK를 서명 빌드했다. `apksigner verify --verbose`에서 v2 서명 `true`를 확인했고 Pleos Connect v2.1.0에 `adb install -r`이 성공했다.
 
 | 항목 | 상태 |
 |---|---|
-| 예시 명령 3종 → 확인 → 예약/주문/재주문 | 서명 release 수동 검증 대기 |
-| 없는 메뉴·모호한 명령 | 순수 Kotlin 테스트 통과, 화면 검증 대기 |
-| 앱 재시작 후 재주문 행 유지 | 서명 release 수동 검증 대기 |
-| 주행 중 명령 화면 차단 | 서명 release 수동 검증 대기 |
-| STT 한국어 발화 → 같은 결과 | 실제 인식 콜백 미확인으로 미실행 |
-| 크래시·OverLimitFlowViolation | 서명 release 수동 검증 대기 |
+| 즉시 주문 예시 | [확인](validation-voice-command/immediate-confirm.png) → [모의 결제 성공](validation-voice-command/immediate-receipt.png), 9,000원 |
+| 재주문 예시 | 완료 주문 저장 → 앱 강제 종료·재시작 후 [홈 제안 유지](validation-voice-command/reorder-after-restart.png) → [확인](validation-voice-command/reorder-confirm.png) → [새 모의 주문](validation-voice-command/reorder-receipt.png) |
+| 도착 기준 예약 예시 | [확인](validation-voice-command/scheduled-confirm.png) → [데모 전달됨](validation-voice-command/scheduled-sent.png). Mock ETA 8분에 도착 10분 전 지정이라 전달 시점이 이미 지나 즉시 전달됨 |
+| 없는 메뉴·모호한 명령 | 없는 메뉴는 [실행 버튼 없는 안내](validation-voice-command/unknown-menu.png) 확인. 모호한 문장은 단위 테스트 통과, 화면 미실행 |
+| 주행 중 명령 화면 차단 | Mock DRIVING 상태에서 홈 명령 행을 탭해도 진입하지 않고 “정차 상태 확인 필요” 토스트 확인. [차단 화면](validation-voice-command/driving-blocked.png) |
+| STT 한국어 발화 → 같은 결과 | 사용자 발화 미실행; 인식 콜백 미확인으로 미실행 |
+| 음성 안내 | 2026-11-23 release 재시험의 명령 확인 화면에서 ON_DEVICE TTS `started`·`completed` 로그 확인. 사용자 청취 미확인. [로그 요약](validation-voice-command/release-log-summary-2026-11-23.log) |
+| 크래시·OverLimitFlowViolation | 2026-11-18 전체 흐름의 logcat은 에뮬레이터 종료로 소실. 2026-11-23 재시험(시작→명령 확인→Mock DRIVING 차단)의 logcat에서 FATAL·OverLimitFlowViolation 등 오류 패턴 0건. [로그 요약](validation-voice-command/release-log-summary-2026-11-23.log) |

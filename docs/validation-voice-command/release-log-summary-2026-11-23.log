@@ -1,0 +1,7 @@
+2026-11-23 Pleos_Connect_v2.1.0 (API 34), signed release APK recheck
+APK SHA-256: 98a01fd443fb19a3e9bf7d9aa33d414341882621aae947ee6d35cdae3370170c
+Sequence: adb logcat -c; force-stop; launch; Mock PARKED; command immediate confirmation; Mock DRIVING; command entry blocked.
+Filtered full logcat: FATAL|OverLimitFlowViolation|IllegalAccess|ClassNotFound|NoSuchMethod|NoClassDefFound|VerifyError|AbstractMethodError = 0 lines.
+11-23 23:49:12.359 I/ScheduledDispatch(19653): ON_DEVICE TTS started
+11-23 23:49:16.289 I/ScheduledDispatch(19653): ON_DEVICE TTS completed
+User response: audio not monitored in this recheck; audible output unverified.
