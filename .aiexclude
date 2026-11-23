@@ -1,0 +1,7 @@
+# Gemini in Android Studio가 읽지 못하게 할 파일
+local.properties
+*.jks
+*.keystore
+keystore.properties
+secrets.properties
+**/google-services.json
