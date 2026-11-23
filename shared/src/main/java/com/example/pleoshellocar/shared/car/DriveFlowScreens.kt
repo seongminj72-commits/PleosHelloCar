@@ -464,9 +464,9 @@ class DemoSettingsScreen(context: CarContext, flow: DriveFlowController) : FlowS
                 "${if (vehicle.mode == VehicleStateMode.MOCK) "Mock" else "실제 차량"} · 모드 전환 / 차량 권한 · 실패 시 UNKNOWN", parked = true) {
                 screenManager.push(VehicleModeScreen(carContext, flow))
             } else row("차량 상태 모드", mockBadge()),
-            if (navigation != null) row("Mock ETA 설정", "${navigation.minutes?.let { "$it 분" } ?: "정보 없음"} · 탭하여 변경 (8→10→3→없음)", parked = true) {
+            if (navigation != null) row("Mock ETA 설정", "${navigation.minutes?.let { "$it 분" } ?: "정보 없음"} · 탭하여 변경 (8→10→30→3→없음)", parked = true) {
                 InteractionPolicy.requireParked(flow.vehicle)
-                val values = listOf(8, 10, 3, null)
+                val values = listOf(8, 10, 30, 3, null)
                 navigation.minutes = values[(values.indexOf(navigation.minutes) + 1) % values.size]
             } else row("ETA 상태", flow.navigation.statusLabel),
             row("준비시간 / 예상 지연", "준비 ${flow.preparationOverride?.let { "$it 분" } ?: "매장 기본값"} · 지연 ${flow.possibleDelay}분 · 여유 1분", parked = true) {
