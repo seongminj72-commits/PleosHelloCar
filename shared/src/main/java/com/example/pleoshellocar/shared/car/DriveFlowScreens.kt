@@ -8,6 +8,10 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import android.os.Handler
 import android.os.Looper
+import android.text.SpannableString
+import android.text.Spanned
+import androidx.core.graphics.drawable.IconCompat
+import com.example.pleoshellocar.shared.R
 import com.example.pleoshellocar.shared.domain.*
 import com.example.pleoshellocar.shared.vehicle.*
 import com.example.pleoshellocar.shared.navigation.*
@@ -37,8 +41,8 @@ abstract class FlowScreen(context: CarContext, protected val flow: DriveFlowCont
 
     /** 행 생성 - 차량용 디스플레이 가독성 고려: 제목 굵게, 본문 일반 */
     protected fun row(
-        title: String,
-        text: String,
+        title: CharSequence,
+        text: CharSequence,
         parked: Boolean = false,
         icon: CarIcon? = null,
         click: (() -> Unit)? = null
@@ -307,9 +311,17 @@ class CommandResultScreen(context: CarContext, flow: DriveFlowController,
 
 class StoreScreen(context: CarContext, flow: DriveFlowController) : FlowScreen(context, flow) {
     override fun onGetTemplate(): Template {
+        val storeIcon = CarIcon.Builder(IconCompat.createWithResource(carContext, R.drawable.ic_store)).build()
         val storeRows = flow.stores.stores().map { store ->
             val status = if (store.acceptingOrders) "주문 가능" else "영업 종료"
-            row(store.name, "준비 약 ${store.preparationMinutes}분 · $status (가상 매장)", parked = true) {
+            val text = "준비 약 ${store.preparationMinutes}분 · $status · 가상 매장"
+            val spannable = SpannableString(text)
+            val statusStart = text.indexOf(status)
+            if (statusStart >= 0) {
+                val color = if (store.acceptingOrders) CarColor.GREEN else CarColor.SECONDARY
+                spannable.setSpan(ForegroundCarColorSpan.create(color), statusStart, statusStart + status.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            row(store.name, spannable, parked = true, icon = storeIcon) {
                 flow.selectStore(store)
                 screenManager.push(MenuScreen(carContext, flow))
             }
